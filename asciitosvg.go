@@ -5,9 +5,7 @@ package asciitosvg
 
 import (
 	"bytes"
-	"fmt"
 	"sync"
-	"sync/atomic"
 )
 
 var f uint32
@@ -41,8 +39,8 @@ func (c *Canvas) scanBox(wg *sync.WaitGroup, p []Point, row, col, rowInc, colInc
 
 	for {
 		// Avoid going off the board
-		if (row < 0 || col < 0 || row >= len(c.grid) || col >= len(c.grid[row])) {
-			return;
+		if row < 0 || col < 0 || row >= len(c.grid) || col >= len(c.grid[row]) {
+			return
 		}
 
 		// If we find a corner, try to follow any lines back to our starting point. If
@@ -65,43 +63,43 @@ func (c *Canvas) scanBox(wg *sync.WaitGroup, p []Point, row, col, rowInc, colInc
 
 			if rowInc == 0 && colInc == 1 {
 				// Moving right, we can move up or down
-				if row < len(c.grid) - 1 && col < len(c.grid[row + 1]) && c.grid[row + 1][col] == '|' {
+				if row < len(c.grid)-1 && col < len(c.grid[row+1]) && c.grid[row+1][col] == '|' {
 					wg.Add(1)
-					go c.scanBox(wg, p, row + 1, col, 1, 0)
+					go c.scanBox(wg, p, row+1, col, 1, 0)
 				}
-				if row > p[0].Y && col < len(c.grid[row - 1]) && c.grid[row - 1][col] == '|' {
+				if row > p[0].Y && col < len(c.grid[row-1]) && c.grid[row-1][col] == '|' {
 					wg.Add(1)
-					go c.scanBox(wg, p, row - 1, col, -1, 0)
+					go c.scanBox(wg, p, row-1, col, -1, 0)
 				}
 			} else if rowInc == 1 && colInc == 0 {
 				// Moving down, we can move left or right
-				if col < len(c.grid[row]) - 1 && c.grid[row][col + 1] == '-' {
+				if col < len(c.grid[row])-1 && c.grid[row][col+1] == '-' {
 					wg.Add(1)
-					go c.scanBox(wg, p, row, col + 1, 0, 1)
+					go c.scanBox(wg, p, row, col+1, 0, 1)
 				}
-				if col > 0 && c.grid[row][col - 1] == '-' {
+				if col > 0 && c.grid[row][col-1] == '-' {
 					wg.Add(1)
-					go c.scanBox(wg, p, row, col - 1, 0, -1)
+					go c.scanBox(wg, p, row, col-1, 0, -1)
 				}
 			} else if rowInc == 0 && colInc == -1 {
 				// Moving left, we can move up or down
-				if row > 0 && col < len(c.grid[row - 1]) && c.grid[row - 1][col] == '|' {
+				if row > 0 && col < len(c.grid[row-1]) && c.grid[row-1][col] == '|' {
 					wg.Add(1)
-					go c.scanBox(wg, p, row - 1, col, -1, 0)
+					go c.scanBox(wg, p, row-1, col, -1, 0)
 				}
-				if row < len(c.grid) - 1 && col < len(c.grid[row + 1]) && c.grid[row + 1][col] == '|' {
+				if row < len(c.grid)-1 && col < len(c.grid[row+1]) && c.grid[row+1][col] == '|' {
 					wg.Add(1)
-					go c.scanBox(wg, p, row + 1, col, -1, 0)
+					go c.scanBox(wg, p, row+1, col, -1, 0)
 				}
 			} else if rowInc == -1 && colInc == 0 {
 				// Moving up, we can move left or right
-				if col < len(c.grid[row]) - 1 && c.grid[row][col + 1] == '-' {
+				if col < len(c.grid[row])-1 && c.grid[row][col+1] == '-' {
 					wg.Add(1)
-					go c.scanBox(wg, p, row, col + 1, 0, 1)
+					go c.scanBox(wg, p, row, col+1, 0, 1)
 				}
-				if col > 0 && c.grid[row][col - 1] == '-' {
+				if col > 0 && c.grid[row][col-1] == '-' {
 					wg.Add(1)
-					go c.scanBox(wg, p, row, col - 1, 0, -1)
+					go c.scanBox(wg, p, row, col-1, 0, -1)
 				}
 			}
 
@@ -117,25 +115,36 @@ func (c *Canvas) scanBox(wg *sync.WaitGroup, p []Point, row, col, rowInc, colInc
 	}
 }
 
-func (c *Canvas) FindBoxes() {
+func (c *Canvas) FindBoxes() Boxes {
 	wg := new(sync.WaitGroup)
 
 	for row, line := range c.grid {
 		for col, char := range line {
 			// Corners appearing on the last row or column of the
 			// grid do not have enough space to start a new box
-			if row < len(c.grid) - 1 && col < len(c.grid[row]) - 1 && col < len(c.grid[row + 1]) {
+			if row < len(c.grid)-1 && col < len(c.grid[row])-1 && col < len(c.grid[row+1]) {
 				// Only consider boxes starting at top-left
-				if isCorner(char) && c.grid[row][col + 1] == '-' && c.grid[row + 1][col] == '|' {
+				if isCorner(char) && c.grid[row][col+1] == '-' && c.grid[row+1][col] == '|' {
 					wg.Add(1)
 					p := make([]Point, 0)
 					p = append(p, Point{X: col, Y: row})
-					go c.scanBox(wg, p, row, col + 1, 0, 1)
+					go c.scanBox(wg, p, row, col+1, 0, 1)
 				}
 			}
 		}
 	}
 
 	wg.Wait()
+	return nil
 }
 
+// Box is scaffolding.
+type Box struct {
+}
+
+// Boxes is scaffolding.
+type Boxes []Box
+
+func (b Boxes) ToSVG() []byte {
+	return nil
+}
