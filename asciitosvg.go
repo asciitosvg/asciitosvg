@@ -6,6 +6,7 @@ package asciitosvg
 import (
 	"bytes"
 	"sync"
+	"unicode/utf8"
 )
 
 var f uint32
@@ -23,8 +24,26 @@ func NewCanvas(data []byte) *Canvas {
 	c := &Canvas{}
 
 	c.rawData = data
-	for _, line := range bytes.Split(data, []byte("\n")) {
-		c.grid = append(c.grid, bytes.Runes(line))
+	lines := bytes.Split(data, []byte("\n"))
+	max := 0
+	for _, line := range lines {
+		if i := utf8.RuneCount(line); i > max {
+			max = i
+		}
+	}
+	for _, line := range lines {
+		t := make([]rune, max)
+		i := 0
+		for len(line) > 0 {
+			r, l := utf8.DecodeRune(line)
+			t[i] = r
+			i++
+			line = line[l:]
+		}
+		for ; i < max; i++ {
+			t[i] = ' '
+		}
+		c.grid = append(c.grid, t)
 	}
 
 	return c
