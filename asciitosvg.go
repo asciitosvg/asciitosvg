@@ -159,7 +159,8 @@ type Box struct {
 // Boxes is scaffolding.
 type Boxes []Box
 
-func (b Boxes) ToSVG() []byte {
+// ToSVG is scaffolding.
+func (b Boxes) ToSVG(noBlur bool, font string, scaleX, scaleY int) []byte {
 	return nil
 }
 
