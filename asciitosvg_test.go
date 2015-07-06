@@ -3,7 +3,11 @@
 
 package asciitosvg
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/maruel/ut"
+)
 
 func TestNewCanvas(t *testing.T) {
 	data := `
@@ -76,4 +80,12 @@ func TestNewCanvas(t *testing.T) {
              +-----+-------+---------+---+
 `
 	NewCanvas([]byte(data))
+}
+
+func TestNewCanvasText(t *testing.T) {
+	n := NewCanvas([]byte("\n foo bar \nb"))
+	o := n.FindObjects()
+	ut.AssertEqual(t, 2, len(o))
+	ut.AssertEqual(t, []rune("b"), o[0].Text())
+	ut.AssertEqual(t, []rune("foo bar"), o[1].Text())
 }

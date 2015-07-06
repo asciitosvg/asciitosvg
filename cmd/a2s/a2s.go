@@ -12,7 +12,24 @@ import (
 	"github.com/asciitosvg/asciitosvg"
 )
 
+const logo = `.-------------------------.
+|                         |
+| .---.-. .-----. .-----. |
+| | .-. | +-->  | |  <--| |
+| | '-' | |  <--| +-->  | |
+| '---'-' '-----' '-----' |
+|  ascii     2      svg   |
+|                         |
+'-------------------------'
+`
+
 func mainImpl() error {
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "%s\n", logo)
+		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+
 	in := flag.String("i", "-", "Path to input text file. If set to \"-\" (hyphen), stdin is used.")
 	out := flag.String("o", "-", "Path to output SVG file. If set to \"-\" (hyphen), stdout is used.")
 	noBlur := flag.Bool("b", false, "Disable drop-shadow blur.")
@@ -33,7 +50,7 @@ func mainImpl() error {
 	}
 
 	canvas := asciitosvg.NewCanvas(input)
-	boxes := canvas.FindBoxes()
+	boxes := canvas.FindObjects()
 	svg := boxes.ToSVG(*noBlur, *font, *scaleX, *scaleY)
 	if *out == "-" {
 		_, err := os.Stdout.Write(svg)
