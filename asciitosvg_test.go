@@ -3,7 +3,11 @@
 
 package asciitosvg
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/maruel/ut"
+)
 
 func TestNewCanvas(t *testing.T) {
 	data := `
@@ -32,6 +36,12 @@ func TestNewCanvas(t *testing.T) {
             +--------+     |
             |Document|<----+
             +--------+
+`
+	NewCanvas([]byte(data))
+}
+
+func TestOddPolygons(t *testing.T) {
+	data := `
     +----+
     |    |
 +---+    +----+
@@ -54,7 +64,28 @@ func TestNewCanvas(t *testing.T) {
     |    |
     +----+
 
+             +-----+-------+
+             |     |       |
+             |     |       |
+        +----+-----+----   |
+--------+----+-----+-------+---+
+        |    |     |       |   |
+        |    |     |       |   |     |   |
+        |    |     |       |   |     |   |
+        |    |     |       |   |     |   |
+--------+----+-----+-------+---+-----+---+--+
+        |    |     |       |   |     |   |  |
+        |    |     |       |   |     |   |  |
+        |   -+-----+-------+---+-----+   |  |
+        |    |     |       |   |     |   |  |
+        |    |     |       |   +-----+---+--+
+             |     |       |         |   |
+             |     |       |         |   |
+     --------+-----+-------+---------+---+-----
+             |     |       |         |   |
+             +-----+-------+---------+---+
 `
 	c := NewCanvas([]byte(data))
-	c.FindBoxes()
+	o := c.FindPolygons()
+	ut.AssertEqual(t, 28, len(o))
 }
