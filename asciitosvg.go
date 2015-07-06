@@ -5,19 +5,15 @@ package asciitosvg
 
 import (
 	"bytes"
+	"image"
 	"sync"
 	"unicode/utf8"
 )
 
-var f uint32
-
-type Point struct {
-	X, Y int
-}
-
 type Canvas struct {
 	rawData []byte
 	grid    [][]rune
+	size    image.Point
 }
 
 func NewCanvas(data []byte) *Canvas {
@@ -25,14 +21,14 @@ func NewCanvas(data []byte) *Canvas {
 
 	c.rawData = data
 	lines := bytes.Split(data, []byte("\n"))
-	max := 0
+	c.size.Y = len(lines)
 	for _, line := range lines {
-		if i := utf8.RuneCount(line); i > max {
-			max = i
+		if i := utf8.RuneCount(line); i > c.size.X {
+			c.size.X = i
 		}
 	}
 	for _, line := range lines {
-		t := make([]rune, max)
+		t := make([]rune, c.size.X)
 		i := 0
 		for len(line) > 0 {
 			r, l := utf8.DecodeRune(line)
@@ -40,7 +36,7 @@ func NewCanvas(data []byte) *Canvas {
 			i++
 			line = line[l:]
 		}
-		for ; i < max; i++ {
+		for ; i < c.size.X; i++ {
 			t[i] = ' '
 		}
 		c.grid = append(c.grid, t)
@@ -53,12 +49,12 @@ func isCorner(char rune) bool {
 	return char == '.' || char == '\'' || char == '+'
 }
 
-func (c *Canvas) scanBox(wg *sync.WaitGroup, p []Point, row, col, rowInc, colInc int) {
+func (c *Canvas) scanBox(wg *sync.WaitGroup, p []image.Point, row, col, rowInc, colInc int) {
 	defer wg.Done()
 
 	for {
 		// Avoid going off the board
-		if row < 0 || col < 0 || row >= len(c.grid) || col >= len(c.grid[row]) {
+		if row < 0 || col < 0 || row >= c.size.Y || col >= c.size.X {
 			return
 		}
 
@@ -78,11 +74,11 @@ func (c *Canvas) scanBox(wg *sync.WaitGroup, p []Point, row, col, rowInc, colInc
 				}
 			}
 
-			p = append(p, Point{X: col, Y: row})
+			p = append(p, image.Point{X: col, Y: row})
 
 			if rowInc == 0 && colInc == 1 {
 				// Moving right, we can move up or down
-				if row < len(c.grid)-1 && c.grid[row+1][col] == '|' {
+				if row < c.size.Y-1 && c.grid[row+1][col] == '|' {
 					wg.Add(1)
 					go c.scanBox(wg, p, row+1, col, 1, 0)
 				}
@@ -106,7 +102,7 @@ func (c *Canvas) scanBox(wg *sync.WaitGroup, p []Point, row, col, rowInc, colInc
 					wg.Add(1)
 					go c.scanBox(wg, p, row-1, col, -1, 0)
 				}
-				if row < len(c.grid)-1 && c.grid[row+1][col] == '|' {
+				if row < c.size.Y-1 && c.grid[row+1][col] == '|' {
 					wg.Add(1)
 					go c.scanBox(wg, p, row+1, col, -1, 0)
 				}
@@ -141,12 +137,12 @@ func (c *Canvas) FindBoxes() Boxes {
 		for col, char := range line {
 			// Corners appearing on the last row or column of the
 			// grid do not have enough space to start a new box
-			if row < len(c.grid)-1 {
+			if row < c.size.Y-1 {
 				// Only consider boxes starting at top-left
 				if isCorner(char) && c.grid[row][col+1] == '-' && c.grid[row+1][col] == '|' {
 					wg.Add(1)
-					p := make([]Point, 0)
-					p = append(p, Point{X: col, Y: row})
+					p := make([]image.Point, 0)
+					p = append(p, image.Point{X: col, Y: row})
 					go c.scanBox(wg, p, row, col+1, 0, 1)
 				}
 			}
