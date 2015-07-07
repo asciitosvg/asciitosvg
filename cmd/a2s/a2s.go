@@ -36,6 +36,7 @@ func mainImpl() error {
 	font := flag.String("f", "Consolas,Monaco,Anonymous Pro,Anonymous,Bitstream Sans Mono,monospace", "font family to use")
 	scaleX := flag.Int("x", 9, "X grid scale in pixels.")
 	scaleY := flag.Int("y", 16, "Y grid scale in pixels.")
+	tabWidth := flag.Int("t", 8, "tab width.")
 	flag.Parse()
 
 	var input []byte
@@ -49,7 +50,7 @@ func mainImpl() error {
 		return err
 	}
 
-	canvas := asciitosvg.NewCanvas(input)
+	canvas := asciitosvg.NewCanvas(input, *tabWidth)
 	boxes := canvas.FindObjects()
 	svg := boxes.ToSVG(*noBlur, *font, *scaleX, *scaleY)
 	if *out == "-" {
