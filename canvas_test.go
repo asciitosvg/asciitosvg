@@ -50,9 +50,9 @@ func TestNewCanvas(t *testing.T) {
 		{
 			[]string{
 				"",
-				"\t+-+",
-				"\t| |",
-				"\t+-+",
+				" +-+",
+				" | |",
+				" +-+",
 			},
 			[]string{"Path{(1,1)}"},
 			[]string{""},
@@ -133,41 +133,7 @@ func TestNewCanvas(t *testing.T) {
 			},
 		},
 
-		// 6 Merged boxes
-		{
-			[]string{
-				"+-+-+",
-				"| | |",
-				"+-+-+",
-			},
-			[]string{"Path{(0,0)}", "Path{(0,0)}"},
-			[]string{"", ""},
-			// TODO(maruel): BROKEN.
-			[][]image.Point{
-				{{X: 0, Y: 0}, {X: 4, Y: 0}, {X: 4, Y: 2}, {X: 0, Y: 2}},
-				{{X: 0, Y: 0}, {X: 4, Y: 0}, {X: 4, Y: 2}, {X: 2, Y: 2}, {X: 2, Y: 1}},
-			},
-		},
-
-		// 7 Adjascent boxes
-		{
-			// TODO(maruel): BROKEN. This one is hard, as it can be seen as 3 boxes
-			// but that is not what is desired.
-			[]string{
-				"+-++-+",
-				"| || |",
-				"+-++-+",
-			},
-			[]string{"Path{(0,0)}", "Path{(0,0)}", "Path{(0,0)}"},
-			[]string{"", "", ""},
-			[][]image.Point{
-				{{X: 0, Y: 0}, {X: 5, Y: 0}, {X: 5, Y: 2}, {X: 0, Y: 2}},
-				{{X: 0, Y: 0}, {X: 5, Y: 0}, {X: 5, Y: 2}, {X: 2, Y: 2}, {X: 2, Y: 1}},
-				{{X: 0, Y: 0}, {X: 5, Y: 0}, {X: 5, Y: 2}, {X: 3, Y: 2}, {X: 3, Y: 1}},
-			},
-		},
-
-		// 8 Inner boxes
+		// 6 Inner boxes
 		{
 			[]string{
 				"+-----+",
@@ -186,7 +152,7 @@ func TestNewCanvas(t *testing.T) {
 			},
 		},
 
-		// 9 Real world diagram example
+		// 7 Real world diagram example
 		{
 			[]string{
 				//         1         2         3
@@ -268,7 +234,7 @@ func TestNewCanvas(t *testing.T) {
 			},
 		},
 
-		// 10 Interwined lines.
+		// 8 Interwined lines.
 		{
 			[]string{
 				"             +-----+-------+",
@@ -296,6 +262,86 @@ func TestNewCanvas(t *testing.T) {
 			nil,
 			nil,
 			nil,
+		},
+	}
+	for i, line := range data {
+		objs := Parse([]byte(strings.Join(line.input, "\n")), 9).Objects()
+		if line.strings != nil {
+			ut.AssertEqualIndex(t, i, line.strings, getStrings(objs))
+		}
+		if line.texts != nil {
+			ut.AssertEqualIndex(t, i, line.texts, getTexts(objs))
+		}
+		if line.corners != nil {
+			ut.AssertEqualIndex(t, i, line.corners, getCorners(objs))
+		}
+	}
+}
+
+func TestNewCanvasBroken(t *testing.T) {
+	// These are the ones that do not give the desired result.
+	t.Parallel()
+	data := []struct {
+		input   []string
+		strings []string
+		texts   []string
+		corners [][]image.Point
+	}{
+		// 0 Indented box
+		{
+			[]string{
+				"",
+				"\t+-+",
+				"\t| |",
+				"\t+-+",
+			},
+			[]string{"Path{(1,1)}"},
+			[]string{""},
+			[][]image.Point{{{X: 1, Y: 1}, {X: 3, Y: 1}, {X: 3, Y: 3}, {X: 1, Y: 3}}},
+		},
+
+		// 1 URL
+		{
+			[]string{
+				"github.com/foo/bar",
+			},
+			[]string{"Text{(0,0) \"github.com/foo/bar\"}"},
+			[]string{"github.com/foo/bar"},
+			[][]image.Point{{{X: 0, Y: 0}, {X: 17, Y: 0}}},
+		},
+
+		// 2 Merged boxes
+		{
+			[]string{
+				"+-+-+",
+				"| | |",
+				"+-+-+",
+			},
+			[]string{"Path{(0,0)}", "Path{(0,0)}"},
+			[]string{"", ""},
+			// TODO(maruel): BROKEN.
+			[][]image.Point{
+				{{X: 0, Y: 0}, {X: 4, Y: 0}, {X: 4, Y: 2}, {X: 0, Y: 2}},
+				{{X: 0, Y: 0}, {X: 4, Y: 0}, {X: 4, Y: 2}, {X: 2, Y: 2}, {X: 2, Y: 1}},
+			},
+		},
+
+		// 3 Adjascent boxes
+		{
+			// TODO(maruel): BROKEN. This one is hard, as it can be seen as 3 boxes
+			// but that is not what is desired.
+			[]string{
+				"+-++-+",
+				"| || |",
+				"+-++-+",
+			},
+			[]string{"Path{(0,0)}", "Path{(0,0)}", "Path{(0,0)}"},
+			[]string{"", "", ""},
+			[][]image.Point{
+				{{X: 0, Y: 0}, {X: 5, Y: 0}, {X: 5, Y: 2}, {X: 0, Y: 2}},
+				{{X: 0, Y: 0}, {X: 5, Y: 0}, {X: 5, Y: 2}, {X: 2, Y: 2}, {X: 2, Y: 1}},
+				{{X: 0, Y: 0}, {X: 5, Y: 0}, {X: 5, Y: 2}, {X: 3, Y: 2}, {X: 3, Y: 1}},
+			},
 		},
 	}
 	for i, line := range data {
@@ -408,7 +454,7 @@ func getTexts(objs []Object) []string {
 	out := []string{}
 	for _, obj := range objs {
 		t := obj.Text()
-		if t == nil {
+		if !obj.IsText() {
 			out = append(out, "")
 		} else if len(t) > 0 {
 			out = append(out, string(t))

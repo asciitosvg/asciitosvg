@@ -18,14 +18,15 @@ type Object interface {
 	// Points returns all the points occupied by this Object. There is at least
 	// one points and all points must be in order and contiguous.
 	Points() []image.Point
+	// Corners returns all the corners (change of direction) along the path.
 	Corners() []image.Point
+	// IsClosed is true if it is a closed path.
 	IsClosed() bool
+	// IsText returns true if it represent text.
+	IsText() bool
 	// Text returns the text associated with this Object if it represents text.
 	// Otherwise returns nil.
 	Text() []rune
-	// Raw is the raw content for graphs. It starts at Offset().
-	Raw() [][]rune
-	RawOffset() image.Point
 }
 
 // Canvas is a processed objects.
@@ -140,8 +141,14 @@ func (c *canvas) findObjects() {
 // partial path. It recursively calls itself when it finds multiple unvisited
 // out-going paths.
 func (c *canvas) scanPath(points []image.Point) objects {
-	next := c.next(points[len(points)-1])
+	cur := points[len(points)-1]
+	next := c.next(cur)
 	if len(next) == 0 {
+		if len(points) == 1 {
+			// Discard 'path' of 1 point. Do not mark point as visited.
+			c.unvisit(cur)
+			return nil
+		}
 		// TODO(maruel): Determine if path is sharing the line another path.
 		o := &object{points: points}
 		o.seal(c)
@@ -152,7 +159,6 @@ func (c *canvas) scanPath(points []image.Point) objects {
 		// Go depth first instead of bread first, this makes it workable for closed
 		// path.
 		if c.isVisited(n) {
-			// TODO(maruel): Closed path.
 			continue
 		}
 		c.visit(n)
@@ -171,7 +177,7 @@ func (c *canvas) scanPath(points []image.Point) objects {
 func (c *canvas) next(pos image.Point) []image.Point {
 	var out []image.Point
 	if !c.isVisited(pos) {
-		panic("Internal error")
+		panic(fmt.Errorf("Internal error; revisiting %s", pos))
 	}
 	ch := c.at(pos)
 	if ch.canHorizontal() {
@@ -211,7 +217,7 @@ func (c *canvas) next(pos image.Point) []image.Point {
 
 // scanText extracts a line of text.
 func (c *canvas) scanText(start image.Point) Object {
-	t := &object{text: []rune{rune(c.at(start))}}
+	obj := &object{points: []image.Point{start}, isText: true}
 	whiteSpaceStreak := 0
 	cur := start
 	for c.canRight(cur) {
@@ -233,21 +239,14 @@ func (c *canvas) scanText(start image.Point) Object {
 		} else {
 			whiteSpaceStreak = 0
 		}
-		t.text = append(t.text, rune(ch))
+		obj.points = append(obj.points, cur)
 	}
 	// TrimRight space.
-	for len(t.text) != 0 && unicode.IsSpace(t.text[len(t.text)-1]) {
-		t.text = t.text[:len(t.text)-1]
+	for len(obj.points) != 0 && c.at(obj.points[len(obj.points)-1]).isSpace() {
+		obj.points = obj.points[:len(obj.points)-1]
 	}
-
-	t.points = make([]image.Point, len(t.text))
-	cur = start
-	for i := 0; i < len(t.text); i++ {
-		cur.X = start.X + i
-		t.points[i] = cur
-	}
-	t.seal(c)
-	return t
+	obj.seal(c)
+	return obj
 }
 
 func (c *canvas) at(p image.Point) char {
@@ -259,7 +258,17 @@ func (c *canvas) isVisited(p image.Point) bool {
 }
 
 func (c *canvas) visit(p image.Point) {
+	// TODO(maruel): Change code to ensure that visit() is called once and only
+	// once per point.
 	c.visited[p.Y*c.size.X+p.X] = true
+}
+
+func (c *canvas) unvisit(p image.Point) {
+	o := p.Y*c.size.X + p.X
+	if !c.visited[o] {
+		panic("Internal error")
+	}
+	c.visited[o] = false
 }
 
 func (c *canvas) canLeft(p image.Point) bool {
@@ -285,13 +294,12 @@ type object struct {
 	// points always starts with the top most, then left most point, starting to
 	// the right.
 	points []image.Point
-	text   []rune
+	isText bool
 
 	// Updated by seal().
-	raw       [][]rune
-	rawOffset image.Point
-	corners   []image.Point
-	isClosed  bool
+	text     []rune
+	corners  []image.Point
+	isClosed bool
 }
 
 func (o *object) Points() []image.Point {
@@ -306,20 +314,16 @@ func (o *object) IsClosed() bool {
 	return o.isClosed
 }
 
+func (o *object) IsText() bool {
+	return o.isText
+}
+
 func (o *object) Text() []rune {
 	return o.text
 }
 
-func (o *object) Raw() [][]rune {
-	return o.raw
-}
-
-func (o *object) RawOffset() image.Point {
-	return o.rawOffset
-}
-
 func (o *object) String() string {
-	if o.text != nil {
+	if o.IsText() {
 		return fmt.Sprintf("Text{%s %q}", o.points[0], string(o.text))
 	}
 	return fmt.Sprintf("Path{%s}", o.points[0])
@@ -327,34 +331,12 @@ func (o *object) String() string {
 
 // seal finalizes the object.
 //
-// It updates raw, rawOfsset, corners and isClosed.
+// It updates text, corners and isClosed.
 func (o *object) seal(c *canvas) {
 	o.corners, o.isClosed = pointsToCorners(o.points)
-	for _, p := range o.points {
-		if p.X < o.rawOffset.X {
-			o.rawOffset.X = p.X
-		}
-		if p.Y < o.rawOffset.Y {
-			o.rawOffset.Y = p.Y
-		}
-	}
-	size := image.Point{}
-	for _, p := range o.points {
-		if x := p.X - o.rawOffset.X; x > size.X {
-			size.X = x
-		}
-		if y := p.Y - o.rawOffset.Y; y > size.Y {
-			size.Y = y
-		}
-	}
-	size.X++
-	size.Y++
-	o.raw = make([][]rune, size.Y)
-	for y := 0; y < size.Y; y++ {
-		o.raw[y] = make([]rune, size.X)
-	}
-	for _, p := range o.points {
-		o.raw[p.Y-o.rawOffset.Y][p.X-o.rawOffset.X] = rune(c.at(p))
+	o.text = make([]rune, len(o.points))
+	for i, p := range o.points {
+		o.text[i] = rune(c.at(p))
 	}
 }
 
@@ -368,8 +350,8 @@ func (o objects) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
 func (o objects) Less(i, j int) bool {
 	l := o[i]
 	r := o[j]
-	lt := l.Text() != nil
-	rt := r.Text() != nil
+	lt := l.IsText()
+	rt := r.IsText()
 	if lt != rt {
 		return rt
 	}
@@ -389,8 +371,7 @@ func (c char) isTextStart() bool {
 }
 
 func (c char) isTextCont() bool {
-	r := rune(c)
-	return unicode.IsLetter(r) || unicode.IsNumber(r) || unicode.IsSymbol(r) || unicode.IsSpace(r)
+	return unicode.IsPrint(rune(c))
 }
 
 func (c char) isSpace() bool {
@@ -428,6 +409,10 @@ func (c char) isArrowVerticalUp() bool {
 
 func (c char) isArrowVertical() bool {
 	return c.isArrowVerticalUp() || c == 'v'
+}
+
+func (c char) isArrow() bool {
+	return c.isArrowHorizontal() || c.isArrowVertical()
 }
 
 // TODO(maruel): Diagonal.

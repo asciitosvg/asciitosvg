@@ -19,6 +19,7 @@ func TestCanvasToSVG(t *testing.T) {
 	}
 	canvas := Parse([]byte(strings.Join(data, "\n")), 9)
 	actual := string(CanvasToSVG(canvas, false, "", 9, 16))
-	// TODO(maruel): Use golden file? Worth postponing once output is actually nice.
-	ut.AssertEqual(t, 702, len(actual))
+	// TODO(maruel): Use golden file? Worth postponing once output is actually
+	// nice.
+	ut.AssertEqual(t, 1598, len(actual))
 }
