@@ -18,53 +18,27 @@ type Object interface {
 	// Points returns all the points occupied by this Object. There is at least
 	// one points and all points must be in order and contiguous.
 	Points() []image.Point
+	Corners() []image.Point
+	IsClosed() bool
 	// Text returns the text associated with this Object if it represents text.
 	// Otherwise returns nil.
 	Text() []rune
-}
-
-// Objects is all objects found.
-type Objects []Object
-
-func (o Objects) Len() int      { return len(o) }
-func (o Objects) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
-
-// Less returns in order top most, then left most.
-func (o Objects) Less(i, j int) bool {
-	l := o[i]
-	r := o[j]
-	lt := l.Text() != nil
-	rt := r.Text() != nil
-	if lt != rt {
-		return rt
-	}
-	lp := l.Points()[0]
-	rp := r.Points()[0]
-	if lp.Y != rp.Y {
-		return lp.Y < rp.Y
-	}
-	return lp.X < rp.X
-}
-
-// ToSVG is scaffolding.
-func (o Objects) ToSVG(noBlur bool, font string, scaleX, scaleY int) []byte {
-	// TODO(maruel): Create XML then serialize it.
-	return nil
+	// Raw is the raw content for graphs. It starts at Offset().
+	Raw() [][]rune
+	RawOffset() image.Point
 }
 
 // Canvas is a processed objects.
-// TODO(maruel): Likely to not need this interface at all, merge NewCanvas()
-// and FindObjects().
 type Canvas interface {
-	// FindObjects returns all the objects found.
-	FindObjects() Objects
+	// Objects returns all the objects found.
+	Objects() []Object
 	Size() image.Point
 }
 
-// NewCanvas returns an initialized Canvas.
+// Parse returns an initialized Canvas.
 //
 // Expands tabs to tabWidth as whitespace.
-func NewCanvas(data []byte, tabWidth int) Canvas {
+func Parse(data []byte, tabWidth int) Canvas {
 	c := &canvas{}
 	lines := bytes.Split(data, []byte("\n"))
 	c.size.Y = len(lines)
@@ -88,68 +62,9 @@ func NewCanvas(data []byte, tabWidth int) Canvas {
 			c.grid[y*c.size.X+x] = ' '
 		}
 	}
+
+	c.findObjects()
 	return c
-}
-
-// PointsToCorners returns all the corners (points where there is a change of
-// directionality) for a path.
-func PointsToCorners(points []image.Point) []image.Point {
-	l := len(points)
-	if l == 1 || l == 2 {
-		return points
-	}
-	out := []image.Point{points[0]}
-	horiz := false
-	if isHorizontal(points[0], points[1]) {
-		horiz = true
-	} else if isVertical(points[0], points[1]) {
-		horiz = false
-	} else {
-		panic("discontinuous points")
-	}
-	for i := 2; i < l; i++ {
-		if isHorizontal(points[i-1], points[i]) {
-			if !horiz {
-				out = append(out, points[i-1])
-				horiz = true
-			}
-		} else if isVertical(points[i-1], points[i]) {
-			if horiz {
-				out = append(out, points[i-1])
-				horiz = false
-			}
-		} else {
-			panic("discontinuous points")
-		}
-	}
-	// Check if a closed path or not. If not, append the last point.
-	last := points[l-1]
-	if isHorizontal(points[0], last) {
-		if !horiz {
-			out = append(out, last)
-		}
-	} else if isVertical(points[0], last) {
-		if horiz {
-			out = append(out, last)
-		}
-	} else {
-		out = append(out, last)
-	}
-	/*
-		if !IsClosed(points) {
-			out = append(out, points[l-1])
-		}
-	*/
-	return out
-}
-
-// IsClosed returns true if the set of points represents a closed path.
-func IsClosed(points []image.Point) bool {
-	if len(points) < 4 {
-		return false
-	}
-	last := points[len(points)-1]
-	return isHorizontal(points[0], last) || isVertical(points[0], last)
 }
 
 // Private details.
@@ -159,11 +74,19 @@ type canvas struct {
 	// (0,0) is top left.
 	grid    []char
 	visited []bool
+	objects objects
 	size    image.Point
 }
 
-func (c *canvas) FindObjects() Objects {
-	var out Objects
+func (c *canvas) Objects() []Object {
+	return c.objects
+}
+
+func (c *canvas) Size() image.Point {
+	return c.size
+}
+
+func (c *canvas) findObjects() {
 	p := image.Point{}
 
 	// The logic is to find any new paths by starting with a point that wasn't
@@ -188,7 +111,7 @@ func (c *canvas) FindObjects() Objects {
 						c.visit(p)
 					}
 				}
-				out = append(out, objs...)
+				c.objects = append(c.objects, objs...)
 			}
 		}
 	}
@@ -205,30 +128,26 @@ func (c *canvas) FindObjects() Objects {
 				for _, p := range obj.Points() {
 					c.visit(p)
 				}
-				out = append(out, obj)
+				c.objects = append(c.objects, obj)
 			}
 		}
 	}
 
-	sort.Sort(out)
-	return out
-}
-
-func (c *canvas) Size() image.Point {
-	return c.size
+	sort.Sort(c.objects)
 }
 
 // scanPath tries to complete one or multiple path or box starting with the
 // partial path. It recursively calls itself when it finds multiple unvisited
 // out-going paths.
-func (c *canvas) scanPath(points []image.Point) Objects {
-	var out Objects
+func (c *canvas) scanPath(points []image.Point) objects {
 	next := c.next(points[len(points)-1])
 	if len(next) == 0 {
-		// TODO(maruel): Determine if open. In particular in case of adjascent
-		// closedpaths sharing a side.
-		return Objects{&openPath{objectBase{points}}}
+		// TODO(maruel): Determine if path is sharing the line another path.
+		o := &object{points: points}
+		o.seal(c)
+		return objects{o}
 	}
+	var objs objects
 	for _, n := range next {
 		// Go depth first instead of bread first, this makes it workable for closed
 		// path.
@@ -240,9 +159,9 @@ func (c *canvas) scanPath(points []image.Point) Objects {
 		p2 := make([]image.Point, len(points)+1)
 		copy(p2, points)
 		p2[len(p2)-1] = n
-		out = append(out, c.scanPath(p2)...)
+		objs = append(objs, c.scanPath(p2)...)
 	}
-	return out
+	return objs
 }
 
 // next returns the next points that can be used to make progress.
@@ -292,7 +211,7 @@ func (c *canvas) next(pos image.Point) []image.Point {
 
 // scanText extracts a line of text.
 func (c *canvas) scanText(start image.Point) Object {
-	t := &text{text: []rune{rune(c.at(start))}}
+	t := &object{text: []rune{rune(c.at(start))}}
 	whiteSpaceStreak := 0
 	cur := start
 	for c.canRight(cur) {
@@ -327,6 +246,7 @@ func (c *canvas) scanText(start image.Point) Object {
 		cur.X = start.X + i
 		t.points[i] = cur
 	}
+	t.seal(c)
 	return t
 }
 
@@ -358,50 +278,107 @@ func (c *canvas) canDown(p image.Point) bool {
 	return p.Y < c.size.Y-1
 }
 
-// objectBase is the common code between path and box.
-type objectBase struct {
+// object implements Object.
+//
+// It can be either an open path, a closed path or text.
+type object struct {
 	// points always starts with the top most, then left most point, starting to
 	// the right.
 	points []image.Point
+	text   []rune
+
+	// Updated by seal().
+	raw       [][]rune
+	rawOffset image.Point
+	corners   []image.Point
+	isClosed  bool
 }
 
-func (l *objectBase) Points() []image.Point {
-	return l.points
+func (o *object) Points() []image.Point {
+	return o.points
 }
 
-func (l *objectBase) Text() []rune {
-	return nil
+func (o *object) Corners() []image.Point {
+	return o.corners
 }
 
-// openPath is an open line. Likely a line between two closed paths (boxes).
-type openPath struct {
-	objectBase
+func (o *object) IsClosed() bool {
+	return o.isClosed
 }
 
-func (p *openPath) String() string {
-	return fmt.Sprintf("Path{%s}", p.points[0])
+func (o *object) Text() []rune {
+	return o.text
 }
 
-// closedPath is a closed path, e.g. a polygon, like a rectangle.
-type closedPath struct {
-	objectBase
+func (o *object) Raw() [][]rune {
+	return o.raw
 }
 
-func (b *closedPath) String() string {
-	return fmt.Sprintf("Path{%s}", b.points[0])
+func (o *object) RawOffset() image.Point {
+	return o.rawOffset
 }
 
-type text struct {
-	objectBase
-	text []rune
+func (o *object) String() string {
+	if o.text != nil {
+		return fmt.Sprintf("Text{%s %q}", o.points[0], string(o.text))
+	}
+	return fmt.Sprintf("Path{%s}", o.points[0])
 }
 
-func (t *text) String() string {
-	return fmt.Sprintf("Text{%s %q}", t.points[0], string(t.text))
+// seal finalizes the object.
+//
+// It updates raw, rawOfsset, corners and isClosed.
+func (o *object) seal(c *canvas) {
+	o.corners, o.isClosed = pointsToCorners(o.points)
+	for _, p := range o.points {
+		if p.X < o.rawOffset.X {
+			o.rawOffset.X = p.X
+		}
+		if p.Y < o.rawOffset.Y {
+			o.rawOffset.Y = p.Y
+		}
+	}
+	size := image.Point{}
+	for _, p := range o.points {
+		if x := p.X - o.rawOffset.X; x > size.X {
+			size.X = x
+		}
+		if y := p.Y - o.rawOffset.Y; y > size.Y {
+			size.Y = y
+		}
+	}
+	size.X++
+	size.Y++
+	o.raw = make([][]rune, size.Y)
+	for y := 0; y < size.Y; y++ {
+		o.raw[y] = make([]rune, size.X)
+	}
+	for _, p := range o.points {
+		o.raw[p.Y-o.rawOffset.Y][p.X-o.rawOffset.X] = rune(c.at(p))
+	}
 }
 
-func (t *text) Text() []rune {
-	return t.text
+// objects is all objects found.
+type objects []Object
+
+func (o objects) Len() int      { return len(o) }
+func (o objects) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
+
+// Less returns in order top most, then left most.
+func (o objects) Less(i, j int) bool {
+	l := o[i]
+	r := o[j]
+	lt := l.Text() != nil
+	rt := r.Text() != nil
+	if lt != rt {
+		return rt
+	}
+	lp := l.Points()[0]
+	rp := r.Points()[0]
+	if lp.Y != rp.Y {
+		return lp.Y < rp.Y
+	}
+	return lp.X < rp.X
 }
 
 type char rune
@@ -493,4 +470,62 @@ func isHorizontal(p1, p2 image.Point) bool {
 func isVertical(p1, p2 image.Point) bool {
 	d := p1.Y - p2.Y
 	return d <= 1 && d >= -1 && p1.X == p2.X
+}
+
+// pointsToCorners returns all the corners (points where there is a change of
+// directionality) for a path. Second return value is true if the path is
+// closed.
+func pointsToCorners(points []image.Point) ([]image.Point, bool) {
+	l := len(points)
+	if l == 1 || l == 2 {
+		return points, false
+	}
+	out := []image.Point{points[0]}
+	horiz := false
+	if isHorizontal(points[0], points[1]) {
+		horiz = true
+	} else if isVertical(points[0], points[1]) {
+		horiz = false
+	} else {
+		panic("discontinuous points")
+	}
+	for i := 2; i < l; i++ {
+		if isHorizontal(points[i-1], points[i]) {
+			if !horiz {
+				out = append(out, points[i-1])
+				horiz = true
+			}
+		} else if isVertical(points[i-1], points[i]) {
+			if horiz {
+				out = append(out, points[i-1])
+				horiz = false
+			}
+		} else {
+			panic("discontinuous points")
+		}
+	}
+	// Check if a closed path or not. If not, append the last point.
+	last := points[l-1]
+	closed := true
+	if isHorizontal(points[0], last) {
+		if !horiz {
+			closed = false
+			out = append(out, last)
+		}
+	} else if isVertical(points[0], last) {
+		if horiz {
+			closed = false
+			out = append(out, last)
+		}
+	} else {
+		closed = false
+		out = append(out, last)
+	}
+	/* TODO(maruel): Something's broken.
+	if !isHorizontal(points[0], last) && !isVertical(points[0], last) {
+		closed = false
+		out = append(out, last)
+	}
+	*/
+	return out, closed
 }

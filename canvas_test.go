@@ -299,7 +299,7 @@ func TestNewCanvas(t *testing.T) {
 		},
 	}
 	for i, line := range data {
-		objs := NewCanvas([]byte(strings.Join(line.input, "\n")), 9).FindObjects()
+		objs := Parse([]byte(strings.Join(line.input, "\n")), 9).Objects()
 		if line.strings != nil {
 			ut.AssertEqualIndex(t, i, line.strings, getStrings(objs))
 		}
@@ -307,7 +307,7 @@ func TestNewCanvas(t *testing.T) {
 			ut.AssertEqualIndex(t, i, line.texts, getTexts(objs))
 		}
 		if line.corners != nil {
-			ut.AssertEqualIndex(t, i, line.corners, pointsToCornersSlice(getPoints(objs)))
+			ut.AssertEqualIndex(t, i, line.corners, getCorners(objs))
 		}
 	}
 }
@@ -317,26 +317,42 @@ func TestPointsToCorners(t *testing.T) {
 	data := []struct {
 		in       []image.Point
 		expected []image.Point
+		closed   bool
 	}{
 		{
 			[]image.Point{{X: 0, Y: 0}, {X: 1, Y: 0}},
 			[]image.Point{{X: 0, Y: 0}, {X: 1, Y: 0}},
+			false,
 		},
 		{
 			[]image.Point{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 2, Y: 0}},
 			[]image.Point{{X: 0, Y: 0}, {X: 2, Y: 0}},
+			false,
 		},
 		{
 			[]image.Point{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}},
 			[]image.Point{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}},
+			false,
+		},
+		{
+			[]image.Point{
+				{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 2, Y: 0}, {X: 2, Y: 1}, {X: 2, Y: 2},
+				{X: 1, Y: 2}, {X: 0, Y: 2}, {X: 0, Y: 1},
+			},
+			[]image.Point{{X: 0, Y: 0}, {X: 2, Y: 0}, {X: 2, Y: 2}, {X: 0, Y: 2}},
+			true,
 		},
 		{
 			[]image.Point{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}, {X: 0, Y: 1}},
 			[]image.Point{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}, {X: 0, Y: 1}},
+			// TODO(maruel): Unexpected; broken.
+			false,
 		},
 	}
 	for i, line := range data {
-		ut.AssertEqualIndex(t, i, line.expected, PointsToCorners(line.in))
+		p, c := pointsToCorners(line.in)
+		ut.AssertEqualIndex(t, i, line.expected, p)
+		ut.AssertEqualIndex(t, i, line.closed, c)
 	}
 }
 
@@ -372,7 +388,7 @@ func BenchmarkT(b *testing.B) {
 	}
 	expected := 30 * b.N
 	b.ResetTimer()
-	objs := NewCanvas(input, 8).FindObjects()
+	objs := Parse(input, 8).Objects()
 	if len(objs) != expected {
 		b.Fatalf("%d != %d", len(objs), expected)
 	}
@@ -380,7 +396,7 @@ func BenchmarkT(b *testing.B) {
 
 // Private details.
 
-func getPoints(objs Objects) [][]image.Point {
+func getPoints(objs []Object) [][]image.Point {
 	out := [][]image.Point{}
 	for _, obj := range objs {
 		out = append(out, obj.Points())
@@ -388,7 +404,7 @@ func getPoints(objs Objects) [][]image.Point {
 	return out
 }
 
-func getTexts(objs Objects) []string {
+func getTexts(objs []Object) []string {
 	out := []string{}
 	for _, obj := range objs {
 		t := obj.Text()
@@ -403,7 +419,7 @@ func getTexts(objs Objects) []string {
 	return out
 }
 
-func getStrings(objs Objects) []string {
+func getStrings(objs []Object) []string {
 	out := []string{}
 	for _, obj := range objs {
 		out = append(out, obj.String())
@@ -411,10 +427,10 @@ func getStrings(objs Objects) []string {
 	return out
 }
 
-func pointsToCornersSlice(points [][]image.Point) [][]image.Point {
-	out := make([][]image.Point, len(points))
-	for i, p := range points {
-		out[i] = PointsToCorners(p)
+func getCorners(objs []Object) [][]image.Point {
+	out := make([][]image.Point, len(objs))
+	for i, obj := range objs {
+		out[i] = obj.Corners()
 	}
 	return out
 }

@@ -50,9 +50,8 @@ func mainImpl() error {
 		return err
 	}
 
-	canvas := asciitosvg.NewCanvas(input, *tabWidth)
-	boxes := canvas.FindObjects()
-	svg := boxes.ToSVG(*noBlur, *font, *scaleX, *scaleY)
+	canvas := asciitosvg.Parse(input, *tabWidth)
+	svg := asciitosvg.CanvasToSVG(canvas, *noBlur, *font, *scaleX, *scaleY)
 	if *out == "-" {
 		_, err := os.Stdout.Write(svg)
 		return err
