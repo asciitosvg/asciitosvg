@@ -17,9 +17,12 @@ func TestCanvasToSVG(t *testing.T) {
 		"|Hi|",
 		"+--+",
 	}
-	canvas := Parse([]byte(strings.Join(data, "\n")), 9)
+	canvas, err := NewCanvas([]byte(strings.Join(data, "\n")), 9)
+	if err != nil {
+		t.Fatalf("Error creating canvas: %s", err)
+	}
 	actual := string(CanvasToSVG(canvas, false, "", 9, 16))
-	// TODO(maruel): Use golden file? Worth postponing once output is actually
+	// TODO(dhobsd): Use golden file? Worth postponing once output is actually
 	// nice.
 	ut.AssertEqual(t, 1598, len(actual))
 }

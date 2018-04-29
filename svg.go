@@ -26,7 +26,7 @@ const (
 	textGroupTag = "  <g id=\"text\" stroke=\"none\" style=\"font-family:%s;font-size:15.2px\" >\n"
 	textTag      = "    <text id=\"obj%d\" x=\"%g\" y=\"%g\" fill=\"%s\">%s</text>\n"
 
-	// TODO(maruel): Fine tune.
+	// TODO(dhobsd): Fine tune.
 	blurDef = `  <defs>
     <filter id="dsFilter" width="150%%" height="150%%">
       <feOffset result="offOut" in="SourceGraphic" dx="2" dy="2"/>
@@ -56,7 +56,7 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 	if len(font) == 0 {
 		font = defaultFont
 	}
-	// TODO(maruel): Generating the XML manually is a tad fishy but encoding/xml
+	// TODO(dhobsd): Generating the XML manually is a tad fishy but encoding/xml
 	// enforces standard XML header and the end code would be significantly
 	// larger. The down side is potential escaping errors.
 	b := &bytes.Buffer{}

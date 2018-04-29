@@ -12,6 +12,7 @@ import (
 	"github.com/asciitosvg/asciitosvg"
 )
 
+
 const logo = `.-------------------------.
 |                         |
 | .---.-. .-----. .-----. |
@@ -33,24 +34,32 @@ func mainImpl() error {
 	in := flag.String("i", "-", "Path to input text file. If set to \"-\" (hyphen), stdin is used.")
 	out := flag.String("o", "-", "Path to output SVG file. If set to \"-\" (hyphen), stdout is used.")
 	noBlur := flag.Bool("b", false, "Disable drop-shadow blur.")
-	font := flag.String("f", "Consolas,Monaco,Anonymous Pro,Anonymous,Bitstream Sans Mono,monospace", "font family to use")
+	font := flag.String("f", "Consolas,Monaco,Anonymous Pro,Anonymous,Bitstream Sans Mono,monospace", "Font family to use.")
 	scaleX := flag.Int("x", 9, "X grid scale in pixels.")
 	scaleY := flag.Int("y", 16, "Y grid scale in pixels.")
-	tabWidth := flag.Int("t", 8, "tab width.")
+	tabWidth := flag.Int("t", 8, "Tab width.")
+	doLogo := flag.Bool("L", false, "Generate SVG of the a2s logo.")
 	flag.Parse()
 
 	var input []byte
 	var err error
-	if *in == "-" {
-		input, err = ioutil.ReadAll(os.Stdin)
+	if *doLogo {
+		input = []byte(logo)
 	} else {
-		input, err = ioutil.ReadFile(*in)
+		if *in == "-" {
+			input, err = ioutil.ReadAll(os.Stdin)
+		} else {
+			input, err = ioutil.ReadFile(*in)
+		}
 	}
 	if err != nil {
 		return err
 	}
 
-	canvas := asciitosvg.Parse(input, *tabWidth)
+	canvas, err := asciitosvg.NewCanvas(input, *tabWidth)
+	if err != nil {
+		return err
+	}
 	svg := asciitosvg.CanvasToSVG(canvas, *noBlur, *font, *scaleX, *scaleY)
 	if *out == "-" {
 		_, err := os.Stdout.Write(svg)
