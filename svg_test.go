@@ -13,8 +13,8 @@ import (
 func TestCanvasToSVG(t *testing.T) {
 	t.Parallel()
 	data := []string{
-		"+--+",
-		"|Hi|",
+		"+--.",
+		"|Hi:",
 		"+--+",
 	}
 	canvas, err := NewCanvas([]byte(strings.Join(data, "\n")), 9)
@@ -24,5 +24,5 @@ func TestCanvasToSVG(t *testing.T) {
 	actual := string(CanvasToSVG(canvas, false, "", 9, 16))
 	// TODO(dhobsd): Use golden file? Worth postponing once output is actually
 	// nice.
-	ut.AssertEqual(t, 1598, len(actual))
+	ut.AssertEqual(t, 1638, len(actual))
 }

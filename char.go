@@ -29,12 +29,28 @@ func (c char) isCorner() bool {
 	return c == '.' || c == '\'' || c == '+'
 }
 
+func (c char) isRoundedCorner() bool {
+	return c == '.' || c == '\''
+}
+
+func (c char) isDashedHorizontal() bool {
+	return c == '='
+}
+
 func (c char) isHorizontal() bool {
-	return c == '-'
+	return c.isDashedHorizontal() || c == '-'
+}
+
+func (c char) isDashedVertical() bool {
+	return c == ':'
 }
 
 func (c char) isVertical() bool {
-	return c == '|'
+	return c.isDashedVertical() || c == '|'
+}
+
+func (c char) isDashed() bool {
+	return c.isDashedHorizontal() || c.isDashedVertical()
 }
 
 func (c char) isArrowHorizontalLeft() bool {
@@ -67,6 +83,14 @@ func (c char) isDiagonalSouthEast() bool {
 
 func (c char) isDiagonal() bool {
 	return c.isDiagonalNorthEast() || c.isDiagonalSouthEast()
+}
+
+func (c char) isTick() bool {
+	return c == 'x'
+}
+
+func (c char) isDot() bool {
+	return c == 'o'
 }
 
 // Diagonal transitions are special: you can move lines diagonally, you can move diagonally from

@@ -16,11 +16,13 @@ type Object interface {
 	fmt.Stringer
 	// Points returns all the points occupied by this Object. Every object has at least one point,
 	// and all points are both in-order and contiguous.
-	Points() []image.Point
+	Points() []Point
 	// Corners returns all the corners (change of direction) along the path.
-	Corners() []image.Point
+	Corners() []Point
 	// IsClosed is true if the object is composed of a closed path.
 	IsClosed() bool
+	// IsDashed is true if this object is a path object, and lines should be drawn dashed.
+	IsDashed() bool
 	// IsText returns true if the object is textual and does not represent a path.
 	IsText() bool
 	// Text returns the text associated with this Object if textual, and nil otherwise.
@@ -153,9 +155,37 @@ func (c *canvas) Size() image.Point {
 	return c.size
 }
 
+// A RenderHint suggests ways the SVG renderer may appropriately represent this point.
+type RenderHint int
+
+const (
+	// No hints are provided for this point.
+	None RenderHint = iota
+	// This point represents a corner that should be rounded.
+	RoundedCorner
+	// This point should have an SVG marker-start attribute associated with it.
+	StartMarker
+	// This point should have an SVG marker-end attribute associated with it.
+	EndMarker
+	// This is a path component that should have a strikethrough at this point.
+	Tick
+	// This is a path component that should have a dot at this point.
+	Dot
+)
+
+type Point struct {
+	X    int
+	Y    int
+	Hint RenderHint
+}
+
+func (p Point) String() string {
+	return fmt.Sprintf("(%d,%d)", p.X, p.Y)
+}
+
 // findObjects finds all objects (lines, polygons, and text) within the underlying grid.
 func (c *canvas) findObjects() {
-	p := image.Point{}
+	p := Point{}
 
 	// Find any new paths by starting with a point that wasn't yet visited, beginning at the top
 	// left of the grid.
@@ -171,7 +201,7 @@ func (c *canvas) findObjects() {
 				// connecting points. This will generate multiple objects if multiple
 				// paths (either open or closed) are found.
 				c.visit(p)
-				objs := c.scanPath([]image.Point{p})
+				objs := c.scanPath([]Point{p})
 				for _, obj := range objs {
 					// For all points in all objects found, mark the points as visited.
 					for _, p := range obj.Points() {
@@ -206,7 +236,7 @@ func (c *canvas) findObjects() {
 
 // scanPath tries to complete a total path (for lines or polygons) starting with some partial path.
 // It recurses when it finds multiple unvisited outgoing paths.
-func (c *canvas) scanPath(points []image.Point) objects {
+func (c *canvas) scanPath(points []Point) objects {
 	cur := points[len(points)-1]
 	next := c.next(cur)
 
@@ -233,7 +263,7 @@ func (c *canvas) scanPath(points []image.Point) objects {
 		o := &object{points: points}
 		o.seal(c)
 		r := objects{o}
-		return append(r, c.scanPath([]image.Point{cur})...)
+		return append(r, c.scanPath([]Point{cur})...)
 	}
 
 	// We scan depth-first instead of breadth-first, making it possible to find a
@@ -244,7 +274,7 @@ func (c *canvas) scanPath(points []image.Point) objects {
 			continue
 		}
 		c.visit(n)
-		p2 := make([]image.Point, len(points)+1)
+		p2 := make([]Point, len(points)+1)
 		copy(p2, points)
 		p2[len(p2)-1] = n
 		objs = append(objs, c.scanPath(p2)...)
@@ -256,17 +286,17 @@ func (c *canvas) scanPath(points []image.Point) objects {
 // progress to the left or right, vertical progress above or below, or diagonal progress to NW,
 // NE, SW, and SE. It skips any points already visited, and returns all of the possible progress
 // points.
-func (c *canvas) next(pos image.Point) []image.Point {
+func (c *canvas) next(pos Point) []Point {
 	// Our caller must have called c.visit prior to calling this function.
 	if !c.isVisited(pos) {
 		panic(fmt.Errorf("internal error; revisiting %s", pos))
 	}
 
-	var out []image.Point
+	var out []Point
 
 	ch := c.at(pos)
 	if ch.canHorizontal() {
-		nextHorizontal := func(p image.Point) {
+		nextHorizontal := func(p Point) {
 			if !c.isVisited(p) && c.at(p).canHorizontal() {
 				out = append(out, p)
 			}
@@ -283,7 +313,7 @@ func (c *canvas) next(pos image.Point) []image.Point {
 		}
 	}
 	if ch.canVertical() {
-		nextVertical := func(p image.Point) {
+		nextVertical := func(p Point) {
 			if !c.isVisited(p) && c.at(p).canVertical() {
 				out = append(out, p)
 			}
@@ -300,7 +330,7 @@ func (c *canvas) next(pos image.Point) []image.Point {
 		}
 	}
 	if c.canDiagonal(pos) {
-		nextDiagonal := func(from, to image.Point) {
+		nextDiagonal := func(from, to Point) {
 			if !c.isVisited(to) && c.at(to).canDiagonalFrom(c.at(from)) {
 				out = append(out, to)
 			}
@@ -339,8 +369,8 @@ func (c *canvas) next(pos image.Point) []image.Point {
 }
 
 // scanText extracts a line of text.
-func (c *canvas) scanText(start image.Point) Object {
-	obj := &object{points: []image.Point{start}, isText: true}
+func (c *canvas) scanText(start Point) Object {
+	obj := &object{points: []Point{start}, isText: true}
 	whiteSpaceStreak := 0
 	cur := start
 	for c.canRight(cur) {
@@ -372,21 +402,21 @@ func (c *canvas) scanText(start image.Point) Object {
 	return obj
 }
 
-func (c *canvas) at(p image.Point) char {
+func (c *canvas) at(p Point) char {
 	return c.grid[p.Y*c.size.X+p.X]
 }
 
-func (c *canvas) isVisited(p image.Point) bool {
+func (c *canvas) isVisited(p Point) bool {
 	return c.visited[p.Y*c.size.X+p.X]
 }
 
-func (c *canvas) visit(p image.Point) {
+func (c *canvas) visit(p Point) {
 	// TODO(dhobsd): Change code to ensure that visit() is called once and only
 	// once per point.
 	c.visited[p.Y*c.size.X+p.X] = true
 }
 
-func (c *canvas) unvisit(p image.Point) {
+func (c *canvas) unvisit(p Point) {
 	o := p.Y*c.size.X + p.X
 	if !c.visited[o] {
 		panic(fmt.Errorf("internal error: point %+v never visited", p))
@@ -394,41 +424,42 @@ func (c *canvas) unvisit(p image.Point) {
 	c.visited[o] = false
 }
 
-func (c *canvas) canLeft(p image.Point) bool {
+func (c *canvas) canLeft(p Point) bool {
 	return p.X > 0
 }
 
-func (c *canvas) canRight(p image.Point) bool {
+func (c *canvas) canRight(p Point) bool {
 	return p.X < c.size.X-1
 }
 
-func (c *canvas) canUp(p image.Point) bool {
+func (c *canvas) canUp(p Point) bool {
 	return p.Y > 0
 }
 
-func (c *canvas) canDown(p image.Point) bool {
+func (c *canvas) canDown(p Point) bool {
 	return p.Y < c.size.Y-1
 }
 
-func (c *canvas) canDiagonal(p image.Point) bool {
+func (c *canvas) canDiagonal(p Point) bool {
 	return (c.canLeft(p) || c.canRight(p)) && (c.canUp(p) || c.canDown(p))
 }
 
 // object implements Object and represents one of an open path, a closed path, or text.
 type object struct {
 	// points always starts with the top most, then left most point, proceeding to the right.
-	points   []image.Point
+	points   []Point
 	isText   bool
 	text     []rune
-	corners  []image.Point
+	corners  []Point
 	isClosed bool
+	isDashed bool
 }
 
-func (o *object) Points() []image.Point {
+func (o *object) Points() []Point {
 	return o.points
 }
 
-func (o *object) Corners() []image.Point {
+func (o *object) Corners() []Point {
 	return o.corners
 }
 
@@ -438,6 +469,10 @@ func (o *object) IsClosed() bool {
 
 func (o *object) IsText() bool {
 	return o.isText
+}
+
+func (o *object) IsDashed() bool {
+	return o.isDashed
 }
 
 func (o *object) Text() []rune {
@@ -451,11 +486,36 @@ func (o *object) String() string {
 	return fmt.Sprintf("Path{%v}", o.points)
 }
 
-// seal finalizes the object, updating text, corners, and isClosed.
+// seal finalizes the object, setting its text, its corners, and its various rendering hints.
 func (o *object) seal(c *canvas) {
+	if c.at(o.points[0]).isArrow() {
+		o.points[0].Hint = StartMarker
+	}
+
+	if c.at(o.points[len(o.points)-1]).isArrow() {
+		o.points[len(o.points)-1].Hint = EndMarker
+	}
+
 	o.corners, o.isClosed = pointsToCorners(o.points)
 	o.text = make([]rune, len(o.points))
+
 	for i, p := range o.points {
+		if !o.IsText() {
+			if c.at(p).isTick() {
+				o.points[i].Hint = Tick
+			} else if c.at(p).isDot() {
+				o.points[i].Hint = Dot
+			}
+
+			if c.at(p).isDashed() {
+				o.isDashed = true
+			}
+
+			// TODO(dhobsd): Only do this for corners.
+			if c.at(p).isRoundedCorner() {
+				o.points[i].Hint = RoundedCorner
+			}
+		}
 		o.text[i] = rune(c.at(p))
 	}
 }
@@ -483,28 +543,28 @@ func (o objects) Less(i, j int) bool {
 }
 
 // isHorizontal returns true if p1 and p2 are horizontally aligned.
-func isHorizontal(p1, p2 image.Point) bool {
+func isHorizontal(p1, p2 Point) bool {
 	d := p1.X - p2.X
 	return d <= 1 && d >= -1 && p1.Y == p2.Y
 }
 
 // isVertical returns true if p1 and p2 are vertically aligned.
-func isVertical(p1, p2 image.Point) bool {
+func isVertical(p1, p2 Point) bool {
 	d := p1.Y - p2.Y
 	return d <= 1 && d >= -1 && p1.X == p2.X
 }
 
 // The following functions return true when the diagonals are connected in various compass directions.
-func isDiagonalSE(p1, p2 image.Point) bool {
+func isDiagonalSE(p1, p2 Point) bool {
 	return p1.X-p2.X == -1 && p1.Y-p2.Y == -1
 }
-func isDiagonalSW(p1, p2 image.Point) bool {
+func isDiagonalSW(p1, p2 Point) bool {
 	return p1.X-p2.X == 1 && p1.Y-p2.Y == -1
 }
-func isDiagonalNW(p1, p2 image.Point) bool {
+func isDiagonalNW(p1, p2 Point) bool {
 	return p1.X-p2.X == 1 && p1.Y-p2.Y == 1
 }
-func isDiagonalNE(p1, p2 image.Point) bool {
+func isDiagonalNE(p1, p2 Point) bool {
 	return p1.X-p2.X == -1 && p1.Y-p2.Y == 1
 }
 
@@ -521,13 +581,13 @@ const (
 // pointsToCorners returns all the corners (points at which there is a change of directionality) for
 // a path. It additionally returns a truth value indicating whether the points supplied indicate a
 // closed path.
-func pointsToCorners(points []image.Point) ([]image.Point, bool) {
+func pointsToCorners(points []Point) ([]Point, bool) {
 	l := len(points)
 	// A path containing fewer than 3 points can neither be closed, nor change direction.
 	if l < 3 {
 		return points, false
 	}
-	out := []image.Point{points[0]}
+	out := []Point{points[0]}
 
 	dir := dirNone
 	if isHorizontal(points[0], points[1]) {
