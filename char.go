@@ -27,7 +27,7 @@ const (
 	dirSe    direction = 0x20
 )
 
-// TODO(maruel): Add charType as a flag, make it a struct.
+// TODO(dhobsd): Add charType as a flag, make it a struct.
 type char rune
 
 func (c char) isTextStart() bool {
@@ -53,11 +53,11 @@ func (c char) isCorner() bool {
 }
 
 func (c char) isHorizontal() bool {
-	return c == '-'
+	return c == '-' || c == '+'
 }
 
 func (c char) isVertical() bool {
-	return c == '|'
+	return c == '|' || c == '+'
 }
 
 func (c char) isArrowHorizontalLeft() bool {
@@ -80,7 +80,7 @@ func (c char) isArrow() bool {
 	return c.isArrowHorizontal() || c.isArrowVertical()
 }
 
-// TODO(maruel): Diagonal.
+// TODO(dhobsd): Diagonal.
 
 func (c char) canHorizontal() bool {
 	return c.isHorizontal() || c.isCorner() || c.isArrowHorizontal()
