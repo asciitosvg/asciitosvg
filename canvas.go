@@ -253,8 +253,9 @@ func (c *canvas) scanPath(points []image.Point) objects {
 }
 
 // The next returns the points that can be used to make progress, scanning (in order) horizontal
-// progress to left or right, and vertical progress above or below. It skips any points already
-// visited, and returns all of the possible progress points.
+// progress to the left or right, vertical progress above or below, or diagonal progress to NW,
+// NE, SW, and SE. It skips any points already visited, and returns all of the possible progress
+// points.
 func (c *canvas) next(pos image.Point) []image.Point {
 	// Our caller must have called c.visit prior to calling this function.
 	if !c.isVisited(pos) {
@@ -263,40 +264,77 @@ func (c *canvas) next(pos image.Point) []image.Point {
 
 	var out []image.Point
 
-	// Look at the current point in the grid and determine
 	ch := c.at(pos)
 	if ch.canHorizontal() {
+		nextHorizontal := func(p image.Point) {
+			if !c.isVisited(p) && c.at(p).canHorizontal() {
+				out = append(out, p)
+			}
+		}
 		if c.canLeft(pos) {
 			n := pos
 			n.X--
-			if !c.isVisited(n) && c.at(n).canHorizontal() {
-				out = append(out, n)
-			}
+			nextHorizontal(n)
 		}
 		if c.canRight(pos) {
 			n := pos
 			n.X++
-			if !c.isVisited(n) && c.at(n).canHorizontal() {
-				out = append(out, n)
-			}
+			nextHorizontal(n)
 		}
 	}
 	if ch.canVertical() {
+		nextVertical := func(p image.Point) {
+			if !c.isVisited(p) && c.at(p).canVertical() {
+				out = append(out, p)
+			}
+		}
 		if c.canUp(pos) {
 			n := pos
 			n.Y--
-			if !c.isVisited(n) && c.at(n).canVertical() {
-				out = append(out, n)
-			}
+			nextVertical(n)
 		}
 		if c.canDown(pos) {
 			n := pos
 			n.Y++
-			if !c.isVisited(n) && c.at(n).canVertical() {
-				out = append(out, n)
+			nextVertical(n)
+		}
+	}
+	if c.canDiagonal(pos) {
+		nextDiagonal := func(from, to image.Point) {
+			if !c.isVisited(to) && c.at(to).canDiagonalFrom(c.at(from)) {
+				out = append(out, to)
+			}
+		}
+		if c.canUp(pos) {
+			if c.canLeft(pos) {
+				n := pos
+				n.X--
+				n.Y--
+				nextDiagonal(pos, n)
+			}
+			if c.canRight(pos) {
+				n := pos
+				n.X++
+				n.Y--
+				nextDiagonal(pos, n)
+			}
+		}
+		if c.canDown(pos) {
+			if c.canLeft(pos) {
+				n := pos
+				n.X--
+				n.Y++
+				nextDiagonal(pos, n)
+			}
+			if c.canRight(pos) {
+				n := pos
+				n.X++
+				n.Y++
+				nextDiagonal(pos, n)
 			}
 		}
 	}
+
 	return out
 }
 
@@ -372,6 +410,10 @@ func (c *canvas) canDown(p image.Point) bool {
 	return p.Y < c.size.Y-1
 }
 
+func (c *canvas) canDiagonal(p image.Point) bool {
+	return (c.canLeft(p) || c.canRight(p)) && (c.canUp(p) || c.canDown(p))
+}
+
 // object implements Object and represents one of an open path, a closed path, or text.
 type object struct {
 	// points always starts with the top most, then left most point, proceeding to the right.
@@ -440,17 +482,41 @@ func (o objects) Less(i, j int) bool {
 	return lp.X < rp.X
 }
 
-// isHorizontal returns if p1 and p2 are horizontally aligned.
+// isHorizontal returns true if p1 and p2 are horizontally aligned.
 func isHorizontal(p1, p2 image.Point) bool {
 	d := p1.X - p2.X
 	return d <= 1 && d >= -1 && p1.Y == p2.Y
 }
 
-// isVertical returns if p1 and p2 are vertically aligned.
+// isVertical returns true if p1 and p2 are vertically aligned.
 func isVertical(p1, p2 image.Point) bool {
 	d := p1.Y - p2.Y
 	return d <= 1 && d >= -1 && p1.X == p2.X
 }
+
+// The following functions return true when the diagonals are connected in various compass directions.
+func isDiagonalSE(p1, p2 image.Point) bool {
+	return p1.X-p2.X == -1 && p1.Y-p2.Y == -1
+}
+func isDiagonalSW(p1, p2 image.Point) bool {
+	return p1.X-p2.X == 1 && p1.Y-p2.Y == -1
+}
+func isDiagonalNW(p1, p2 image.Point) bool {
+	return p1.X-p2.X == 1 && p1.Y-p2.Y == 1
+}
+func isDiagonalNE(p1, p2 image.Point) bool {
+	return p1.X-p2.X == -1 && p1.Y-p2.Y == 1
+}
+
+const (
+	dirNone = iota // No directionality
+	dirH           // Horizontal
+	dirV           // Vertical
+	dirSE          // South-East
+	dirSW          // South-West
+	dirNW          // North-West
+	dirNE          // North-East
+)
 
 // pointsToCorners returns all the corners (points at which there is a change of directionality) for
 // a path. It additionally returns a truth value indicating whether the points supplied indicate a
@@ -462,25 +528,45 @@ func pointsToCorners(points []image.Point) ([]image.Point, bool) {
 		return points, false
 	}
 	out := []image.Point{points[0]}
-	horiz := false
+
+	dir := dirNone
 	if isHorizontal(points[0], points[1]) {
-		horiz = true
+		dir = dirH
 	} else if isVertical(points[0], points[1]) {
-		horiz = false
+		dir = dirV
+	} else if isDiagonalSE(points[0], points[1]) {
+		dir = dirSE
+	} else if isDiagonalSW(points[0], points[1]) {
+		dir = dirSW
+	} else if isDiagonalNW(points[0], points[1]) {
+		dir = dirNW
+	} else if isDiagonalNE(points[0], points[1]) {
+		dir = dirNE
 	} else {
 		panic(fmt.Errorf("discontiguous points: %+v", points))
 	}
+
+	// Starting from the third point, check to see if the directionality between points P and
+	// P-1 has changed.
 	for i := 2; i < l; i++ {
+		cornerFunc := func(idx, newDir int) {
+			if dir != newDir {
+				out = append(out, points[idx-1])
+				dir = newDir
+			}
+		}
 		if isHorizontal(points[i-1], points[i]) {
-			if !horiz {
-				out = append(out, points[i-1])
-				horiz = true
-			}
+			cornerFunc(i, dirH)
 		} else if isVertical(points[i-1], points[i]) {
-			if horiz {
-				out = append(out, points[i-1])
-				horiz = false
-			}
+			cornerFunc(i, dirV)
+		} else if isDiagonalSE(points[i-1], points[i]) {
+			cornerFunc(i, dirSE)
+		} else if isDiagonalSW(points[i-1], points[i]) {
+			cornerFunc(i, dirSW)
+		} else if isDiagonalNW(points[i-1], points[i]) {
+			cornerFunc(i, dirNW)
+		} else if isDiagonalNE(points[i-1], points[i]) {
+			cornerFunc(i, dirNE)
 		} else {
 			panic(fmt.Errorf("discontiguous points: %+v", points))
 		}
@@ -489,25 +575,25 @@ func pointsToCorners(points []image.Point) ([]image.Point, bool) {
 	// Check if the points indicate a closed path. If not, append the last point.
 	last := points[l-1]
 	closed := true
+	closedFunc := func(newDir int) {
+		if dir != newDir {
+			closed = false
+			out = append(out, last)
+		}
+	}
 	if isHorizontal(points[0], last) {
-		if !horiz {
-			closed = false
-			out = append(out, last)
-		}
+		closedFunc(dirH)
 	} else if isVertical(points[0], last) {
-		if horiz {
-			closed = false
-			out = append(out, last)
-		}
+		closedFunc(dirV)
+	} else if isDiagonalNE(last, points[0]) {
+		closedFunc(dirNE)
 	} else {
+		// Note: we'll always find any closed polygon from its top-left-most point. If it
+		// is closed, it must be closed in the north-easterly direction, thus we don't test
+		// for any other types of polygone closure.
 		closed = false
 		out = append(out, last)
 	}
-	/* TODO(dhobsd): Something's broken.
-	if !isHorizontal(points[0], last) && !isVertical(points[0], last) {
-		closed = false
-		out = append(out, last)
-	}
-	*/
+
 	return out, closed
 }
