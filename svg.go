@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
-	"image"
 	"io"
 )
 
@@ -18,7 +17,7 @@ const (
 	svgTag      = "<svg width=\"%dpx\" height=\"%dpx\" version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n"
 
 	// Path related tag.
-	pathTag       = "    <path id=\"%s%d\" %s%sd=\"%s\" />\n"
+	pathTag       = "    <path id=\"%s%d\" %sd=\"%s\" />\n"
 	pathMarkStart = "marker-start=\"url(#iPointer)\" "
 	pathMarkEnd   = "marker-end=\"url(#Pointer)\" "
 
@@ -71,7 +70,11 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 	_, _ = io.WriteString(b, "  <g id=\"closed\" filter=\"url(#dsFilter)\" stroke=\"#000\" stroke-width=\"2\" fill=\"#88d\">\n")
 	for i, obj := range c.Objects() {
 		if obj.IsClosed() && !obj.IsText() {
-			_, _ = fmt.Fprintf(b, pathTag, "closed", i, "", "", flatten(obj.Points(), scaleX, scaleY)+" Z")
+			opts := ""
+			if obj.IsDashed() {
+				opts = "stroke-dasharray=\"5 5\" "
+			}
+			_, _ = fmt.Fprintf(b, pathTag, "closed", i, opts, flatten(obj.Points(), scaleX, scaleY)+"Z")
 		}
 	}
 	_, _ = io.WriteString(b, "  </g>\n")
@@ -79,16 +82,19 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 	_, _ = io.WriteString(b, "  <g id=\"lines\" stroke=\"#000\" stroke-width=\"2\" fill=\"none\">\n")
 	for i, obj := range c.Objects() {
 		if !obj.IsClosed() && !obj.IsText() {
-			text := obj.Text()
-			start := ""
-			if char(text[0]).isArrow() {
-				start = pathMarkStart
+			points := obj.Points()
+
+			opts := ""
+			if obj.IsDashed() {
+				opts += "stroke-dasharray=\"5 5\" "
 			}
-			end := ""
-			if char(text[len(text)-1]).isArrow() {
-				end = pathMarkEnd
+			if points[0].Hint == StartMarker {
+				opts += pathMarkStart
 			}
-			_, _ = fmt.Fprintf(b, pathTag, "open", i, start, end, flatten(obj.Points(), scaleX, scaleY))
+			if points[len(points)-1].Hint == EndMarker {
+				opts += pathMarkEnd
+			}
+			_, _ = fmt.Fprintf(b, pathTag, "open", i, opts, flatten(points, scaleX, scaleY))
 		}
 	}
 	_, _ = io.WriteString(b, "  </g>\n")
@@ -118,18 +124,104 @@ func escape(s string) string {
 	return b.String()
 }
 
-func flatten(points []image.Point, scaleX, scaleY int) string {
-	out := ""
-	for i, p := range points {
-		cmd := "L"
-		if i == 0 {
-			cmd = "M"
-		}
-		sfx := " "
-		if i == len(points)-1 {
-			sfx = ""
-		}
-		out += fmt.Sprintf("%s %g %g%s", cmd, (float64(p.X)+.5)*float64(scaleX), (float64(p.Y)+.5)*float64(scaleY), sfx)
+type scaledPoint struct {
+	X    float64
+	Y    float64
+	Hint RenderHint
+}
+
+func scale(p Point, scaleX, scaleY int) scaledPoint {
+	return scaledPoint{
+		X:    (float64(p.X) + .5) * float64(scaleX),
+		Y:    (float64(p.Y) + .5) * float64(scaleY),
+		Hint: p.Hint,
 	}
+}
+
+func flatten(points []Point, scaleX, scaleY int) string {
+	out := ""
+
+	// Scaled start point, and previous point (which is always initially the start point).
+	sp := scale(points[0], scaleX, scaleY)
+	pp := sp
+
+	for i, cp := range points {
+		p := scale(cp, scaleX, scaleY)
+
+		// Our start point is represented by a single moveto command (unless the start point
+		// is a rounded corner) as the shape will be closed with the Z command automatically
+		// if we have a closed polygon. If our start point is a rounded corner, we have to go
+		// ahead and draw that curve.
+		if i == 0 {
+			if cp.Hint == RoundedCorner {
+				out += fmt.Sprintf("M %g %g Q %g %g %g %g ", p.X, p.Y+10, p.X, p.Y, p.X+10, p.Y)
+				continue
+			}
+
+			out += fmt.Sprintf("M %g %g ", p.X, p.Y)
+			continue
+		}
+
+		// If this point has a rounded corner, we need to calculate the curve. This algorithm
+		// only works when the shapes are drawn in a clockwise manner.
+		if cp.Hint == RoundedCorner {
+			// The control point is always the original corner.
+			cx := p.X
+			cy := p.Y
+
+			sx, sy, ex, ey := 0., 0., 0., 0.
+
+			// We need to know the next point to determine which way to turn.
+			var np scaledPoint
+			if i == len(points)-1 {
+				np = sp
+			} else {
+				np = scale(points[i+1], scaleX, scaleY)
+			}
+
+			if pp.X == p.X {
+				// If we're on the same vertical axis, our starting X coordinate is
+				// the same as the control point coordinate
+				sx = p.X
+
+				// Offset start point from control point in the proper direction.
+				if pp.Y < p.Y {
+					sy = p.Y - 10
+				} else {
+					sy = p.Y + 10
+				}
+
+				ey = p.Y
+				// Offset endpoint from control point in the proper direction.
+				if np.X < p.X {
+					ex = p.X - 10
+				} else {
+					ex = p.X + 10
+				}
+			} else if pp.Y == p.Y {
+				// Horizontal decisions mirror vertical's above.
+				sy = p.Y
+				if pp.X < p.X {
+					sx = p.X - 10
+				} else {
+					sx = p.X + 10
+				}
+				ex = p.X
+				if np.Y <= p.Y {
+					ey = p.Y - 10
+				} else {
+					ey = p.Y + 10
+				}
+			}
+
+			out += fmt.Sprintf("L %g %g Q %g %g %g %g ", sx, sy, cx, cy, ex, ey)
+		} else {
+			// Oh, the horrors of drawing a straight line...
+			out += fmt.Sprintf("L %g %g ", p.X, p.Y)
+		}
+
+		pp = p
+	}
+
 	return out
 }
