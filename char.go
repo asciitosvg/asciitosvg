@@ -5,29 +5,6 @@ package asciitosvg
 
 import "unicode"
 
-type charType int
-
-const (
-	point   charType = 0x1
-	control charType = 0x2
-	smarker charType = 0x4
-	imarker charType = 0x8
-	tick    charType = 0x10
-	dot     charType = 0x20
-)
-
-type direction int
-
-const (
-	dirUp    direction = 0x1
-	dirDown  direction = 0x2
-	dirLeft  direction = 0x4
-	dirRight direction = 0x8
-	dirNe    direction = 0x10
-	dirSe    direction = 0x20
-)
-
-// TODO(dhobsd): Add charType as a flag, make it a struct.
 type char rune
 
 func (c char) isTextStart() bool {
@@ -45,7 +22,7 @@ func (c char) isSpace() bool {
 
 // isPathStart returns true on any form of ascii art that can start a graph.
 func (c char) isPathStart() bool {
-	return c.isCorner() || c.isHorizontal() || c.isVertical() || c.isArrowHorizontalLeft() || c.isArrowVerticalUp()
+	return c.isCorner() || c.isHorizontal() || c.isVertical() || c.isArrowHorizontalLeft() || c.isArrowVerticalUp() || c.isDiagonal()
 }
 
 func (c char) isCorner() bool {
@@ -53,11 +30,11 @@ func (c char) isCorner() bool {
 }
 
 func (c char) isHorizontal() bool {
-	return c == '-' || c == '+'
+	return c == '-'
 }
 
 func (c char) isVertical() bool {
-	return c == '|' || c == '+'
+	return c == '|'
 }
 
 func (c char) isArrowHorizontalLeft() bool {
@@ -80,7 +57,30 @@ func (c char) isArrow() bool {
 	return c.isArrowHorizontal() || c.isArrowVertical()
 }
 
-// TODO(dhobsd): Diagonal.
+func (c char) isDiagonalNorthEast() bool {
+	return c == '/'
+}
+
+func (c char) isDiagonalSouthEast() bool {
+	return c == '\\'
+}
+
+func (c char) isDiagonal() bool {
+	return c.isDiagonalNorthEast() || c.isDiagonalSouthEast()
+}
+
+// Diagonal transitions are special: you can move lines diagonally, you can move diagonally from
+// corners to edges or lines, but you cannot move diagonally between corners.
+func (c char) canDiagonalFrom(from char) bool {
+	if from.isArrowVertical() || from.isCorner() {
+		return c.isDiagonal()
+	} else if from.isDiagonal() {
+		return c.isDiagonal() || c.isCorner() || c.isArrowVertical() || c.isHorizontal() || c.isVertical()
+	} else if from.isHorizontal() || from.isVertical() {
+		return c.isDiagonal()
+	}
+	return false
+}
 
 func (c char) canHorizontal() bool {
 	return c.isHorizontal() || c.isCorner() || c.isArrowHorizontal()
