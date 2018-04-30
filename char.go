@@ -1,4 +1,4 @@
-// Copyright 2012 - 2015 The ASCIIToSVG Contributors
+// Copyright 2012 - 2018 The ASCIIToSVG Contributors
 // All rights reserved.
 
 package asciitosvg
@@ -7,9 +7,21 @@ import "unicode"
 
 type char rune
 
+func (c char) isObjectStartTag() bool {
+	return c == '['
+}
+
+func (c char) isObjectEndTag() bool {
+	return c == ']'
+}
+
+func (c char) isTagDefinitionSeparator() bool {
+	return c == ':'
+}
+
 func (c char) isTextStart() bool {
 	r := rune(c)
-	return unicode.IsLetter(r) || unicode.IsNumber(r) || unicode.IsSymbol(r)
+	return c.isObjectStartTag() || unicode.IsLetter(r) || unicode.IsNumber(r) || unicode.IsSymbol(r)
 }
 
 func (c char) isTextCont() bool {

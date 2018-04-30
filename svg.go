@@ -1,4 +1,4 @@
-// Copyright 2012 - 2015 The ASCIIToSVG Contributors
+// Copyright 2012 - 2018 The ASCIIToSVG Contributors
 // All rights reserved.
 
 package asciitosvg
@@ -8,6 +8,8 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"strings"
+	// TODO(dhobsd): Investigate using SVGo?
 )
 
 const (
@@ -55,31 +57,56 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 	if len(font) == 0 {
 		font = defaultFont
 	}
+
 	// TODO(dhobsd): Generating the XML manually is a tad fishy but encoding/xml
 	// enforces standard XML header and the end code would be significantly
 	// larger. The down side is potential escaping errors.
 	b := &bytes.Buffer{}
-	_, _ = io.WriteString(b, header)
-	_, _ = io.WriteString(b, watermark)
-	_, _ = fmt.Fprintf(b, svgTag, (c.Size().X+1)*scaleX, (c.Size().Y+1)*scaleY)
+	io.WriteString(b, header)
+	io.WriteString(b, watermark)
+	fmt.Fprintf(b, svgTag, (c.Size().X+1)*scaleX, (c.Size().Y+1)*scaleY)
 	x := float64(scaleX - 1)
 	y := float64(scaleY - 1)
-	_, _ = fmt.Fprintf(b, blurDef, x, y, x, y)
+	fmt.Fprintf(b, blurDef, x, y, x, y)
+
+	options := c.Options()
+	getOpts := func(tag string) string {
+		opts := ""
+		if options, ok := options[tag]; ok {
+			for k, v := range options {
+				if strings.HasPrefix(k, "a2s:") {
+					continue
+				}
+
+				switch v.(type) {
+				case string:
+					opts += fmt.Sprintf("%s=\"%s\" ", k, v.(string))
+				default:
+					// TODO(dhobsd): Implement.
+					opts += fmt.Sprintf("%s=\"UNIMPLEMENTED\" ", k)
+				}
+			}
+		}
+
+		return opts
+	}
 
 	// 3 passes, first closed paths, then open paths, then text.
-	_, _ = io.WriteString(b, "  <g id=\"closed\" filter=\"url(#dsFilter)\" stroke=\"#000\" stroke-width=\"2\" fill=\"#88d\">\n")
+	io.WriteString(b, "  <g id=\"closed\" filter=\"url(#dsFilter)\" stroke=\"#000\" stroke-width=\"2\" fill=\"none\">\n")
 	for i, obj := range c.Objects() {
 		if obj.IsClosed() && !obj.IsText() {
 			opts := ""
 			if obj.IsDashed() {
 				opts = "stroke-dasharray=\"5 5\" "
 			}
-			_, _ = fmt.Fprintf(b, pathTag, "closed", i, opts, flatten(obj.Points(), scaleX, scaleY)+"Z")
+
+			opts += getOpts(obj.Tag())
+			fmt.Fprintf(b, pathTag, "closed", i, opts, flatten(obj.Points(), scaleX, scaleY)+"Z")
 		}
 	}
-	_, _ = io.WriteString(b, "  </g>\n")
+	io.WriteString(b, "  </g>\n")
 
-	_, _ = io.WriteString(b, "  <g id=\"lines\" stroke=\"#000\" stroke-width=\"2\" fill=\"none\">\n")
+	io.WriteString(b, "  <g id=\"lines\" stroke=\"#000\" stroke-width=\"2\" fill=\"none\">\n")
 	for i, obj := range c.Objects() {
 		if !obj.IsClosed() && !obj.IsText() {
 			points := obj.Points()
@@ -94,25 +121,45 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 			if points[len(points)-1].Hint == EndMarker {
 				opts += pathMarkEnd
 			}
-			_, _ = fmt.Fprintf(b, pathTag, "open", i, opts, flatten(points, scaleX, scaleY))
+			opts += getOpts(obj.Tag())
+			fmt.Fprintf(b, pathTag, "open", i, opts, flatten(points, scaleX, scaleY))
 		}
 	}
-	_, _ = io.WriteString(b, "  </g>\n")
+	io.WriteString(b, "  </g>\n")
 
-	_, _ = fmt.Fprintf(b, textGroupTag, escape(string(font)))
+	fmt.Fprintf(b, textGroupTag, escape(string(font)))
 	for i, obj := range c.Objects() {
 		if obj.IsText() {
-			// If inside a box, make white, otherwise make black.
+			// Look up the fill of the containing box to determine what text color to
+			// use. TODO(dhobsd): when an object is nested inside a containing object
+			// with a dark fill, we do not detect this properly. We should scan all
+			// containing objects here to find the most specific fill.
 			color := "#000"
-			topleft := obj.Points()[0]
-			x := float64(topleft.X * scaleX)
-			y := (float64(topleft.Y) + .75) * float64(scaleY)
-			_, _ = fmt.Fprintf(b, textTag, i, x, y, color, escape(string(obj.Text())))
+			text := string(obj.Text())
+			if tag := obj.Tag(); tag != "" {
+				if fill, ok := options[tag]["fill"]; ok {
+					color, _ = textColor(fill.(string))
+				}
+
+				if label, ok := options[tag]["a2s:label"]; ok {
+					text = label.(string)
+				}
+
+				// If we're a reference, the a2s:delref tag informs us to remove our reference.
+				if obj.Corners()[0].X == 0 {
+					if _, ok := options[tag]["a2s:delref"]; ok {
+						continue
+					}
+				}
+			}
+
+			sp := scale(obj.Points()[0], scaleX, scaleY)
+			fmt.Fprintf(b, textTag, i, sp.X, sp.Y, color, escape(text))
 		}
 	}
-	_, _ = io.WriteString(b, "  </g>\n")
+	io.WriteString(b, "  </g>\n")
 
-	_, _ = io.WriteString(b, "</svg>\n")
+	io.WriteString(b, "</svg>\n")
 	return b.Bytes()
 }
 
