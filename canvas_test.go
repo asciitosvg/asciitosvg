@@ -1,4 +1,4 @@
-// Copyright 2012 - 2015 The ASCIIToSVG Contributors
+// Copyright 2012 - 2018 The ASCIIToSVG Contributors
 // All rights reserved.
 
 package asciitosvg

@@ -1,4 +1,4 @@
-// Copyright 2012 - 2015 The ASCIIToSVG Contributors
+// Copyright 2012 - 2018 The ASCIIToSVG Contributors
 // All rights reserved.
 
 package main
@@ -12,16 +12,19 @@ import (
 	"github.com/asciitosvg/asciitosvg"
 )
 
+const logo = ` .-------------------------.
+ |                         |
+ | .---.-. .-----. .-----. |
+ | | .-. | +-->  | |  <--| |
+ | | '-' | |  <--| +-->  | |
+ | '---'-' '-----' '-----' |
+ |  ascii     2      svg   |
+ |                         |
+ '-------------------------'
 
-const logo = `.-------------------------.
-|                         |
-| .---.-. .-----. .-----. |
-| | .-. | +-->  | |  <--| |
-| | '-' | |  <--| +-->  | |
-| '---'-' '-----' '-----' |
-|  ascii     2      svg   |
-|                         |
-'-------------------------'
+https://github.com/asciitosvg
+
+[1,0]: {"fill":"#88d","a2s:delref":1}
 `
 
 func mainImpl() error {

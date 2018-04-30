@@ -1,13 +1,16 @@
-// Copyright 2012 - 2015 The ASCIIToSVG Contributors
+// Copyright 2012 - 2018 The ASCIIToSVG Contributors
 // All rights reserved.
 
 package asciitosvg
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"image"
+	"regexp"
 	"sort"
+	"strconv"
 	"unicode/utf8"
 )
 
@@ -17,6 +20,8 @@ type Object interface {
 	// Points returns all the points occupied by this Object. Every object has at least one point,
 	// and all points are both in-order and contiguous.
 	Points() []Point
+	// HasPoint returns true if the object contains the supplied Point coordinates.
+	HasPoint(Point) bool
 	// Corners returns all the corners (change of direction) along the path.
 	Corners() []Point
 	// IsClosed is true if the object is composed of a closed path.
@@ -27,6 +32,10 @@ type Object interface {
 	IsText() bool
 	// Text returns the text associated with this Object if textual, and nil otherwise.
 	Text() []rune
+	// SetTag sets an options tag on this Object so the renderer may look up options.
+	SetTag(string)
+	// Tag returns the tag of this object, if any.
+	Tag() string
 }
 
 // Canvas provides methods for returning objects from an underlying textual grid.
@@ -36,14 +45,19 @@ type Canvas interface {
 	fmt.Stringer
 	// Objects returns all the objects found in the underlying grid.
 	Objects() []Object
+	// TextContainer returns the Object that contains the supplied Text object, if any.
+	TextContainer(s, e Point) Object
 	// Size returns the visual dimensions of the Canvas.
 	Size() image.Point
+	// Options returns a map of options to apply to Objects based on the object's tag. This
+	// maps tag name to a map of option names to options.
+	Options() map[string]map[string]interface{}
 }
 
 // NewCanvas returns a new Canvas, initialized from the provided data. If tabWidth is set to a non-negative
 // value, that value will be used to convert tabs to spaces within the grid.
 func NewCanvas(data []byte, tabWidth int) (Canvas, error) {
-	c := &canvas{}
+	c := &canvas{options: make(map[string]map[string]interface{})}
 
 	lines := bytes.Split(data, []byte("\n"))
 	c.size.Y = len(lines)
@@ -139,6 +153,7 @@ type canvas struct {
 	visited []bool
 	objects objects
 	size    image.Point
+	options map[string]map[string]interface{}
 }
 
 type objects []Object
@@ -153,6 +168,33 @@ func (c *canvas) Objects() []Object {
 
 func (c *canvas) Size() image.Point {
 	return c.size
+}
+
+func (c *canvas) Options() map[string]map[string]interface{} {
+	return c.options
+}
+
+func (c *canvas) TextContainer(start, end Point) Object {
+	maxTL := Point{X: -1, Y: -1}
+
+	var target Object
+	for _, o := range c.objects {
+		// Text can't be in an open path, or another text object.
+		if !o.IsClosed() {
+			continue
+		}
+
+		// If the object can fully encapsulate this text tag, mark it as the
+		// target. The maxTL check allows us to find the most specific object
+		// in the case of nested polygons.
+		if o.HasPoint(start) && o.HasPoint(end) && o.Corners()[0].X > maxTL.X && o.Corners()[0].Y > maxTL.Y {
+			target = o
+			maxTL.X = o.Corners()[0].X
+			maxTL.Y = o.Corners()[0].Y
+		}
+	}
+
+	return target
 }
 
 // A RenderHint suggests ways the SVG renderer may appropriately represent this point.
@@ -223,6 +265,12 @@ func (c *canvas) findObjects() {
 			}
 			if ch := c.at(p); ch.isTextStart() {
 				obj := c.scanText(p)
+
+				// scanText will return nil if the text at this area is simply
+				// setting options on a container object.
+				if obj == nil {
+					continue
+				}
 				for _, p := range obj.Points() {
 					c.visit(p)
 				}
@@ -368,12 +416,27 @@ func (c *canvas) next(pos Point) []Point {
 	return out
 }
 
+// Used for matching [X, Y]: {...} tag definitions. These definitions target specific objects.
+var objTagRE = regexp.MustCompile(`(\d+)\s*,\s*(\d+)$`)
+
 // scanText extracts a line of text.
 func (c *canvas) scanText(start Point) Object {
 	obj := &object{points: []Point{start}, isText: true}
 	whiteSpaceStreak := 0
-	cur := start
+	cur, end := start, start
+
+	tagged := 0
+	tag := []rune{}
+	tagDef := []rune{}
+
 	for c.canRight(cur) {
+		if cur.X == start.X && c.at(cur).isObjectStartTag() {
+			tagged++
+		} else if cur.X > start.X && c.at(cur).isObjectEndTag() {
+			end = cur
+			tagged++
+		}
+
 		cur.X++
 		if c.isVisited(cur) {
 			// If the point is already visited, we hit a polygon or a line.
@@ -383,7 +446,7 @@ func (c *canvas) scanText(start Point) Object {
 		if !ch.isTextCont() {
 			break
 		}
-		if ch.isSpace() {
+		if tagged == 0 && ch.isSpace() {
 			whiteSpaceStreak++
 			// Stop when we see 3 consecutive whitespace points.
 			if whiteSpaceStreak > 2 {
@@ -392,12 +455,73 @@ func (c *canvas) scanText(start Point) Object {
 		} else {
 			whiteSpaceStreak = 0
 		}
+
+		switch tagged {
+		case 1:
+			if !c.at(cur).isObjectEndTag() {
+				tag = append(tag, rune(ch))
+			}
+		case 2:
+			if c.at(cur).isTagDefinitionSeparator() {
+				tagged++
+			} else {
+				tagged = -1
+			}
+		case 3:
+			tagDef = append(tagDef, rune(ch))
+		}
+
 		obj.points = append(obj.points, cur)
 	}
+
+	// If we found a start and end tag marker, we either need to assign the tag to the object,
+	// or we need to assign the specified options to the global canvas option space.
+	if tagged == 2 {
+		t := string(tag)
+		if container := c.TextContainer(start, end); container != nil {
+			container.SetTag(t)
+		}
+
+		// The tag applies to the text object as well so that properties like
+		// a2s:label can be set.
+		obj.SetTag(t)
+	} else if tagged == 3 {
+		t := string(tag)
+
+		// A tag definition targeting an object will not be found within any object; we need
+		// to do that calculation here.
+		if matches := objTagRE.FindStringSubmatch(t); matches != nil {
+			if targetX, err := strconv.ParseInt(matches[1], 10, 0); err == nil {
+				if targetY, err := strconv.ParseInt(matches[2], 10, 0); err == nil {
+					for i, o := range c.objects {
+						corner := o.Corners()[0]
+						if corner.X == int(targetX) && corner.Y == int(targetY) {
+							c.objects[i].SetTag(t)
+							break
+						}
+					}
+				}
+			}
+		}
+		// This is a tag definition. Parse the JSON and assign the options to the canvas.
+		var m interface{}
+		def := []byte(string(tagDef))
+		if err := json.Unmarshal(def, &m); err != nil {
+			// TODO(dhobsd): Gross.
+			panic(err)
+		}
+
+		// The tag applies to the reference object as well, so that properties like
+		// a2s:delref can be set.
+		obj.SetTag(t)
+		c.options[t] = m.(map[string]interface{})
+	}
+
 	// Trim the right side of the text object.
 	for len(obj.points) != 0 && c.at(obj.points[len(obj.points)-1]).isSpace() {
 		obj.points = obj.points[:len(obj.points)-1]
 	}
+
 	obj.seal(c)
 	return obj
 }
@@ -453,6 +577,7 @@ type object struct {
 	corners  []Point
 	isClosed bool
 	isDashed bool
+	tag      string
 }
 
 func (o *object) Points() []Point {
@@ -479,11 +604,38 @@ func (o *object) Text() []rune {
 	return o.text
 }
 
+func (o *object) SetTag(s string) {
+	o.tag = s
+}
+
+func (o *object) Tag() string {
+	return o.tag
+}
+
 func (o *object) String() string {
 	if o.IsText() {
 		return fmt.Sprintf("Text{%s %q}", o.points[0], string(o.text))
 	}
 	return fmt.Sprintf("Path{%v}", o.points)
+}
+
+// HasPoint determines whether the supplied point lives inside the object. Since we support complex
+// convex and concave polygons, we need to do a full point-in-polygon test. The algorithm implemented
+// comes from the more efficient, less-clever version at http://alienryderflex.com/polygon/.
+func (o *object) HasPoint(p Point) bool {
+	hasPoint := false
+	ncorners := len(o.corners)
+	j := ncorners - 1
+	for i := 0; i < ncorners; i++ {
+		if (o.corners[i].Y < p.Y && o.corners[j].Y >= p.Y || o.corners[j].Y < p.Y && o.corners[i].Y >= p.Y) && (o.corners[i].X <= p.X || o.corners[j].X <= p.X) {
+			if o.corners[i].X+(p.Y-o.corners[i].Y)/(o.corners[j].Y-o.corners[i].Y)*(o.corners[j].X-o.corners[i].X) < p.X {
+				hasPoint = !hasPoint
+			}
+		}
+		j = i
+	}
+
+	return hasPoint
 }
 
 // seal finalizes the object, setting its text, its corners, and its various rendering hints.
