@@ -53,6 +53,7 @@ const (
 `
 )
 
+// CanvasToSVG renders the supplied asciitosvg.Canvas to SVG, based on the supplied options.
 func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte {
 	if len(font) == 0 {
 		font = defaultFont
