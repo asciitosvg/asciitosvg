@@ -27,6 +27,10 @@ const (
 	textGroupTag = "  <g id=\"text\" stroke=\"none\" style=\"font-family:%s;font-size:15.2px\" >\n"
 	textTag      = "    <text id=\"obj%d\" x=\"%g\" y=\"%g\" fill=\"%s\">%s</text>\n"
 
+	// Point effect tags.
+	dotTag  = "    <circle cx=\"%g\" cy=\"%g\" r=\"3\" fill=\"#000\" />\n"
+	tickTag = "    <line x1=\"%g\" y1=\"%g\" x2=\"%g\" y2=\"%g\" stroke-width=\"1\" />\n"
+
 	// TODO(dhobsd): Fine tune.
 	blurDef = `  <defs>
     <filter id="dsFilter" width="150%%" height="150%%">
@@ -126,6 +130,30 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 			if points[len(points)-1].Hint == EndMarker {
 				opts += pathMarkEnd
 			}
+
+			for _, p := range points {
+				switch p.Hint {
+				case Dot:
+					sp := scale(p, scaleX, scaleY)
+					fmt.Fprintf(b, dotTag, sp.X, sp.Y)
+				case Tick:
+					p := scale(p, scaleX, scaleY)
+					p1, p2 := p, p
+					p1.X -= 4
+					p1.Y -= 4
+					p2.X += 4
+					p2.Y += 4
+					fmt.Fprintf(b, tickTag, p1.X, p1.Y, p2.X, p2.Y)
+
+					p1, p2 = p, p
+					p1.X += 4
+					p1.Y -= 4
+					p2.X -= 4
+					p2.Y += 4
+					fmt.Fprintf(b, tickTag, p1.X, p1.Y, p2.X, p2.Y)
+				}
+			}
+
 			opts += getOpts(obj.Tag())
 			fmt.Fprintf(b, pathTag, "open", i, opts, flatten(points, scaleX, scaleY))
 		}

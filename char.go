@@ -34,7 +34,7 @@ func (c char) isSpace() bool {
 
 // isPathStart returns true on any form of ascii art that can start a graph.
 func (c char) isPathStart() bool {
-	return c.isCorner() || c.isHorizontal() || c.isVertical() || c.isArrowHorizontalLeft() || c.isArrowVerticalUp() || c.isDiagonal()
+	return (c.isCorner() || c.isHorizontal() || c.isVertical() || c.isArrowHorizontalLeft() || c.isArrowVerticalUp() || c.isDiagonal()) && !c.isTick() && !c.isDot()
 }
 
 func (c char) isCorner() bool {
@@ -50,7 +50,7 @@ func (c char) isDashedHorizontal() bool {
 }
 
 func (c char) isHorizontal() bool {
-	return c.isDashedHorizontal() || c == '-'
+	return c.isDashedHorizontal() || c.isTick() || c.isDot() || c == '-'
 }
 
 func (c char) isDashedVertical() bool {
@@ -58,7 +58,7 @@ func (c char) isDashedVertical() bool {
 }
 
 func (c char) isVertical() bool {
-	return c.isDashedVertical() || c == '|'
+	return c.isDashedVertical() || c.isTick() || c.isDot() || c == '|'
 }
 
 func (c char) isDashed() bool {
