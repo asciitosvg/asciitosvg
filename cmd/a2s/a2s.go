@@ -1,6 +1,7 @@
 // Copyright 2012 - 2018 The ASCIIToSVG Contributors
 // All rights reserved.
 
+// The a2s tool generates SVG output given an ASCII diagram input.
 package main
 
 import (

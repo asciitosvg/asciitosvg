@@ -9,17 +9,17 @@ import "fmt"
 type RenderHint int
 
 const (
-	// No hints are provided for this point.
+	// None indicates no hints are provided for this point.
 	None RenderHint = iota
-	// This point represents a corner that should be rounded.
+	// RoundedCorner indicates the renderer should smooth corners on this path.
 	RoundedCorner
-	// This point should have an SVG marker-start attribute associated with it.
+	// StartMarker indicates this point should have an SVG marker-start attribute.
 	StartMarker
-	// This point should have an SVG marker-end attribute associated with it.
+	// EndMarker indicates this point should have an SVG marker-end attribute.
 	EndMarker
-	// This is a path component that should have a strikethrough at this point.
+	// Tick indicates the renderer should mark a tick in the path at this point.
 	Tick
-	// This is a path component that should have a dot at this point.
+	// Dot indicates the renderer should insert a filled dot in the path at this point.
 	Dot
 )
 

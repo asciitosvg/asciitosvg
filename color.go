@@ -5,29 +5,53 @@ package asciitosvg
 
 import (
 	"fmt"
+	"strconv"
 )
 
 func parseHexColor(c string) (r, g, b int, err error) {
+	var pr, pg, pb int64
+
 	switch len(c) {
 	case 4:
-		// Short #rgb or #RGB form
-		n, _ := fmt.Sscanf(c, "#%1x%1x%1x", &r, &g, &b)
-		if n == 0 {
-			n, _ = fmt.Sscanf(c, "#%1X%1X%1X", &r, &g, &b)
-			if n != 3 {
-				err = fmt.Errorf("color '%s' not valid #rgb or #RGB form", c)
-			}
+		pr, err = strconv.ParseInt(string(c[1]), 16, 0)
+		if err != nil {
+			return 0, 0, 0, err
 		}
+
+		pg, err = strconv.ParseInt(string(c[2]), 16, 0)
+		if err != nil {
+			return 0, 0, 0, err
+		}
+
+		pb, err = strconv.ParseInt(string(c[3]), 16, 0)
+		if err != nil {
+			return 0, 0, 0, err
+		}
+
+		pr *= 17
+		pg *= 17
+		pb *= 17
 	case 7:
-		// Normal ##rrggbb form
-		n, _ := fmt.Sscanf(c, "#%02x%02x%02x", &r, &g, &b)
-		if n == 0 {
-			n, _ = fmt.Sscanf(c, "#%02X%02X%02X", &r, &g, &b)
-			if n != 3 {
-				err = fmt.Errorf("color '%s' not in valid #rrggbb or #RRGGBB form", c)
-			}
+		pr, err = strconv.ParseInt(string(c[1:3]), 16, 0)
+		if err != nil {
+			return 0, 0, 0, err
 		}
+
+		pg, err = strconv.ParseInt(string(c[3:5]), 16, 0)
+		if err != nil {
+			return 0, 0, 0, err
+		}
+
+		pb, err = strconv.ParseInt(string(c[5:7]), 16, 0)
+		if err != nil {
+			return 0, 0, 0, err
+		}
+
+	default:
+		return 0, 0, 0, fmt.Errorf("color '%s' not of valid length", c)
 	}
+
+	r, g, b = int(pr), int(pg), int(pb)
 
 	return
 }
