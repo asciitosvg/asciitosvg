@@ -206,10 +206,7 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 
 	for i, obj := range c.Objects() {
 		if obj.IsText() {
-			// Look up the fill of the containing box to determine what text color to
-			// use. TODO(dhobsd): when an object is nested inside a containing object
-			// with a dark fill, we do not detect this properly. We should scan all
-			// containing objects here to find the most specific fill.
+			// Look up the fill of the containing box to determine what text color to use.
 			color, err := findTextColor(obj)
 			if err != nil {
 				fmt.Printf("Error figuring out text color: %s\n", err)
