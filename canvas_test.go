@@ -435,7 +435,7 @@ func TestNewCanvas(t *testing.T) {
 	for i, line := range data {
 		c, err := NewCanvas([]byte(strings.Join(line.input, "\n")), 9)
 		if err != nil {
-			t.Fatalf("Error creating canvas: %s", err)
+			t.Fatalf("Test %d: error creating canvas: %s", i, err)
 		}
 		objs := c.Objects()
 		if line.strings != nil {
@@ -514,7 +514,7 @@ func TestNewCanvasBroken(t *testing.T) {
 	for i, line := range data {
 		c, err := NewCanvas([]byte(strings.Join(line.input, "\n")), 9)
 		if err != nil {
-			t.Fatalf("Error creating canvas: %s", err)
+			t.Fatalf("Test %d: error creating canvas: %s", i, err)
 		}
 		objs := c.Objects()
 		if line.strings != nil {

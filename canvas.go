@@ -54,11 +54,12 @@ func NewCanvas(data []byte, tabWidth int) (Canvas, error) {
 			return nil, fmt.Errorf("invalid UTF-8 encoding on line %d", i)
 		}
 
-		if l, err := expandTabs(line, tabWidth); err != nil {
+		l, err := expandTabs(line, tabWidth)
+		if err != nil {
 			return nil, err
-		} else {
-			lines[i] = l
 		}
+
+		lines[i] = l
 
 		if i := utf8.RuneCount(lines[i]); i > c.size.X {
 			c.size.X = i
