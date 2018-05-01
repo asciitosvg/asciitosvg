@@ -21,20 +21,28 @@ type Canvas interface {
 	fmt.Stringer
 	// Objects returns all the objects found in the underlying grid.
 	Objects() []Object
-	// TextContainer returns the Object that contains the supplied Text object, if any.
-	TextContainer(s, e Point) Object
 	// Size returns the visual dimensions of the Canvas.
 	Size() image.Point
 	// Options returns a map of options to apply to Objects based on the object's tag. This
 	// maps tag name to a map of option names to options.
 	Options() map[string]map[string]interface{}
+	// EnclosingObjects returns the set of objects that contain this point in order from most
+	// to least specific.
+	EnclosingObjects(p Point) []Object
 }
 
 // NewCanvas returns a new Canvas, initialized from the provided data. If tabWidth is set to a non-negative
 // value, that value will be used to convert tabs to spaces within the grid. Creation of the Canvas
 // can fail if the diagram contains invalid UTF-8 sequences.
 func NewCanvas(data []byte, tabWidth int) (Canvas, error) {
-	c := &canvas{options: make(map[string]map[string]interface{})}
+	c := &canvas{
+		options: map[string]map[string]interface{}{
+			"__a2s__closed__options__": map[string]interface{}{
+				"fill": "#fff",
+				"filter": "url(#dsFilter)",
+			},
+		},
+	}
 
 	lines := bytes.Split(data, []byte("\n"))
 	c.size.Y = len(lines)
@@ -149,27 +157,24 @@ func (c *canvas) Options() map[string]map[string]interface{} {
 	return c.options
 }
 
-func (c *canvas) TextContainer(start, end Point) Object {
+func (c *canvas) EnclosingObjects(p Point) []Object {
 	maxTL := Point{X: -1, Y: -1}
 
-	var target Object
+	var q []Object
 	for _, o := range c.objects {
-		// Text can't be in an open path, or another text object.
+		// An object can't really contain another unless it is a polygon.
 		if !o.IsClosed() {
 			continue
 		}
 
-		// If the object can fully encapsulate this text tag, mark it as the
-		// target. The maxTL check allows us to find the most specific object
-		// in the case of nested polygons.
-		if o.HasPoint(start) && o.HasPoint(end) && o.Corners()[0].X > maxTL.X && o.Corners()[0].Y > maxTL.Y {
-			target = o
+		if o.HasPoint(p) && o.Corners()[0].X > maxTL.X && o.Corners()[0].Y > maxTL.Y {
+			q = append(q, o)
 			maxTL.X = o.Corners()[0].X
 			maxTL.Y = o.Corners()[0].Y
 		}
 	}
 
-	return target
+	return q
 }
 
 // findObjects finds all objects (lines, polygons, and text) within the underlying grid.
@@ -370,7 +375,7 @@ var objTagRE = regexp.MustCompile(`(\d+)\s*,\s*(\d+)$`)
 func (c *canvas) scanText(start Point) Object {
 	obj := &object{points: []Point{start}, isText: true}
 	whiteSpaceStreak := 0
-	cur, end := start, start
+	cur := start
 
 	tagged := 0
 	tag := []rune{}
@@ -380,7 +385,6 @@ func (c *canvas) scanText(start Point) Object {
 		if cur.X == start.X && c.at(cur).isObjectStartTag() {
 			tagged++
 		} else if cur.X > start.X && c.at(cur).isObjectEndTag() {
-			end = cur
 			tagged++
 		}
 
@@ -425,8 +429,8 @@ func (c *canvas) scanText(start Point) Object {
 	// or we need to assign the specified options to the global canvas option space.
 	if tagged == 2 {
 		t := string(tag)
-		if container := c.TextContainer(start, end); container != nil {
-			container.SetTag(t)
+		if container := c.EnclosingObjects(start); container != nil {
+			container[0].SetTag(t)
 		}
 
 		// The tag applies to the text object as well so that properties like

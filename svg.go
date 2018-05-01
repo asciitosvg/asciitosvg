@@ -101,7 +101,11 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 				opts = "stroke-dasharray=\"5 5\" "
 			}
 
-			opts += getOpts(obj.Tag())
+			tag := obj.Tag()
+			if tag == "" {
+				tag = "__a2s__closed__options__"
+			}
+			opts += getOpts(tag)
 			fmt.Fprintf(b, pathTag, "closed", i, opts, flatten(obj.Points(), scaleX, scaleY)+"Z")
 		}
 	}
@@ -129,19 +133,48 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 	io.WriteString(b, "  </g>\n")
 
 	fmt.Fprintf(b, textGroupTag, escape(string(font)))
+
+	findTextColor := func(o Object) (string, error) {
+		// If the tag on the text object is a special reference, that's the color we should use
+		// for the text.
+		if tag := o.Tag(); objTagRE.MatchString(tag) {
+			if fill, ok := options[tag]["fill"]; ok {
+				return fill.(string), nil
+			}
+		}
+
+		// Otherwise, find the most specific fill and calibrate the color based on that.
+		if containers := c.EnclosingObjects(o.Points()[0]); containers != nil {
+			for _, container := range containers {
+				if tag := container.Tag(); tag != "" {
+					if fill, ok := options[tag]["fill"]; ok {
+						if fill == "none" {
+							continue
+						}
+
+						return textColor(fill.(string))
+					}
+				}
+			}
+		}
+
+		// Default to black.
+		return "#000", nil
+	}
+
 	for i, obj := range c.Objects() {
 		if obj.IsText() {
 			// Look up the fill of the containing box to determine what text color to
 			// use. TODO(dhobsd): when an object is nested inside a containing object
 			// with a dark fill, we do not detect this properly. We should scan all
 			// containing objects here to find the most specific fill.
-			color := "#000"
+			color, err := findTextColor(obj)
+			if err != nil {
+				fmt.Printf("Error figuring out text color: %s\n", err)
+			}
+
 			text := string(obj.Text())
 			if tag := obj.Tag(); tag != "" {
-				if fill, ok := options[tag]["fill"]; ok {
-					color, _ = textColor(fill.(string))
-				}
-
 				if label, ok := options[tag]["a2s:label"]; ok {
 					text = label.(string)
 				}
