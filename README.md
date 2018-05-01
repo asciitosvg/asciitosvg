@@ -209,6 +209,9 @@ using the `a2s:delref` option; if it is set to any valid JSON value, it will
 remove the reference text. You can use the `a2s:label` to replace the text with
 any value, or to an empty string to remove it entirely.
 
+The `a2s:link` option will wrap the target object with a clickable link to the
+URL specified in the value.
+
 #### Special references
 
 It is possible to reference an object for formatting using its X and Y
@@ -227,7 +230,6 @@ Features that are currently unimplemented include:
 
  * Custom objects, including the `a2s:type` format specifier, are not yet
  implemented.
- * Clickable URLs are not yet implemented.
  * No support is planned for angled corners using `#`.
  * No support is planned for undirected lines using `*`.
 

@@ -81,6 +81,32 @@ func TestCanvasToSVG(t *testing.T) {
 			},
 			1968,
 		},
+
+		// 6 Just text
+		{
+			[]string{
+				" foo",
+			},
+			1476,
+		},
+
+		// 7 Just text with a deleting reference
+		{
+			[]string{
+				" foo",
+				"[1,0]: {\"a2s:delref\":1,\"a2s:label\":\"foo\"}",
+			},
+			1477,
+		},
+
+		// 8 Just text with a link
+		{
+			[]string{
+				" foo",
+				"[1,0]: {\"a2s:delref\":1, \"a2s:link\":\"https://github.com/asciitosvg/asciitosvg\"}",
+			},
+			1521,
+		},
 	}
 	for i, line := range data {
 		canvas, err := NewCanvas([]byte(strings.Join(line.input, "\n")), 9)
