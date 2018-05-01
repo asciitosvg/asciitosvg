@@ -135,6 +135,10 @@ following characters:
  * `\` or `/`: Diagonal lines.
  * `+`: Edge of a line segment, or an angled corner.
 
+Ticks and dots can be added into the middle of a line segment using `x` and
+`o`, respectively. Note that these characters cannot be inserted into diagonal
+lines, and they cannot begin a line.
+
 To draw a polygon or turn a line, corners are necessary. The following
 characters are valid corner characters:
 
@@ -224,9 +228,6 @@ Features that are currently unimplemented include:
  * Custom objects, including the `a2s:type` format specifier, are not yet
  implemented.
  * Clickable URLs are not yet implemented.
- * Dot and tick support in lines is partially implemented: they will parse
- correctly, but are not yet rendered differently than as part of a line
- component.
  * No support is planned for angled corners using `#`.
  * No support is planned for undirected lines using `*`.
 
