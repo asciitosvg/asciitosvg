@@ -19,13 +19,13 @@ const (
 	svgTag      = "<svg width=\"%dpx\" height=\"%dpx\" version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n"
 
 	// Path related tag.
-	pathTag       = "    <path id=\"%s%d\" %sd=\"%s\" />\n"
+	pathTag       = "    %s<path id=\"%s%d\" %sd=\"%s\" />%s\n"
 	pathMarkStart = "marker-start=\"url(#iPointer)\" "
 	pathMarkEnd   = "marker-end=\"url(#Pointer)\" "
 
 	// Text related tag.
 	textGroupTag = "  <g id=\"text\" stroke=\"none\" style=\"font-family:%s;font-size:15.2px\" >\n"
-	textTag      = "    <text id=\"obj%d\" x=\"%g\" y=\"%g\" fill=\"%s\">%s</text>\n"
+	textTag      = "    %s<text id=\"obj%d\" x=\"%g\" y=\"%g\" fill=\"%s\">%s</text>%s\n"
 
 	// Point effect tags.
 	dotTag  = "    <circle cx=\"%g\" cy=\"%g\" r=\"3\" fill=\"#000\" />\n"
@@ -110,7 +110,14 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 				tag = "__a2s__closed__options__"
 			}
 			opts += getOpts(tag)
-			fmt.Fprintf(b, pathTag, "closed", i, opts, flatten(obj.Points(), scaleX, scaleY)+"Z")
+
+			startLink, endLink := "", ""
+			if link, ok := options[tag]["a2s:link"]; ok {
+				startLink = link.(string)
+				endLink = "</a>"
+			}
+
+			fmt.Fprintf(b, pathTag, startLink, "closed", i, opts, flatten(obj.Points(), scaleX, scaleY)+"Z", endLink)
 		}
 	}
 	io.WriteString(b, "  </g>\n")
@@ -154,8 +161,15 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 				}
 			}
 
-			opts += getOpts(obj.Tag())
-			fmt.Fprintf(b, pathTag, "open", i, opts, flatten(points, scaleX, scaleY))
+			tag := obj.Tag()
+			opts += getOpts(tag)
+
+			startLink, endLink := "", ""
+			if link, ok := options[tag]["a2s:link"]; ok {
+				startLink = link.(string)
+				endLink = "</a>"
+			}
+			fmt.Fprintf(b, pathTag, startLink, "open", i, opts, flatten(points, scaleX, scaleY), endLink)
 		}
 	}
 	io.WriteString(b, "  </g>\n")
@@ -201,22 +215,30 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 				fmt.Printf("Error figuring out text color: %s\n", err)
 			}
 
+			startLink, endLink := "", ""
 			text := string(obj.Text())
-			if tag := obj.Tag(); tag != "" {
+			tag := obj.Tag()
+			if tag != "" {
 				if label, ok := options[tag]["a2s:label"]; ok {
 					text = label.(string)
 				}
 
 				// If we're a reference, the a2s:delref tag informs us to remove our reference.
+				// TODO(dhobsd): If text is on column 0 but is not a special reference,
+				// we can't really detect that here.
 				if obj.Corners()[0].X == 0 {
 					if _, ok := options[tag]["a2s:delref"]; ok {
 						continue
 					}
 				}
-			}
 
+				if link, ok := options[tag]["a2s:link"]; ok {
+					startLink = link.(string)
+					endLink = "</a>"
+				}
+			}
 			sp := scale(obj.Points()[0], scaleX, scaleY)
-			fmt.Fprintf(b, textTag, i, sp.X, sp.Y, color, escape(text))
+			fmt.Fprintf(b, textTag, startLink, i, sp.X, sp.Y, color, escape(text), endLink)
 		}
 	}
 	io.WriteString(b, "  </g>\n")
