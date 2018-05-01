@@ -124,9 +124,10 @@ func (o *object) seal(c *canvas) {
 				o.isDashed = true
 			}
 
-			// TODO(dhobsd): Only do this for corners.
-			if c.at(p).isRoundedCorner() {
-				o.points[i].Hint = RoundedCorner
+			for _, corner := range o.corners {
+				if corner.X == p.X && corner.Y == p.Y && c.at(p).isRoundedCorner() {
+					o.points[i].Hint = RoundedCorner
+				}
 			}
 		}
 		o.text[i] = rune(c.at(p))
