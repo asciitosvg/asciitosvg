@@ -13,10 +13,11 @@ import (
 func TestNewCanvas(t *testing.T) {
 	t.Parallel()
 	data := []struct {
-		input   []string
-		strings []string
-		texts   []string
-		corners [][]Point
+		input     []string
+		strings   []string
+		texts     []string
+		points    [][]Point
+		allPoints bool
 	}{
 		// 0 Small box
 		{
@@ -28,6 +29,7 @@ func TestNewCanvas(t *testing.T) {
 			[]string{"Path{[(0,0) (1,0) (2,0) (2,1) (2,2) (1,2) (0,2) (0,1)]}"},
 			[]string{""},
 			[][]Point{{{X: 0, Y: 0}, {X: 2, Y: 0}, {X: 2, Y: 2}, {X: 0, Y: 2}}},
+			false,
 		},
 
 		// 1 Tight box
@@ -43,6 +45,7 @@ func TestNewCanvas(t *testing.T) {
 					{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}, {X: 0, Y: 1},
 				},
 			},
+			false,
 		},
 
 		// 2 Indented box
@@ -56,6 +59,7 @@ func TestNewCanvas(t *testing.T) {
 			[]string{"Path{[(1,1) (2,1) (3,1) (3,2) (3,3) (2,3) (1,3) (1,2)]}"},
 			[]string{""},
 			[][]Point{{{X: 1, Y: 1}, {X: 3, Y: 1}, {X: 3, Y: 3}, {X: 1, Y: 3}}},
+			false,
 		},
 
 		// 3 Free flow text
@@ -72,6 +76,7 @@ func TestNewCanvas(t *testing.T) {
 				{{X: 0, Y: 2}, {X: 5, Y: 2}},
 				{{X: 9, Y: 2}, {X: 11, Y: 2}},
 			},
+			false,
 		},
 
 		// 4 Text in a box
@@ -87,6 +92,7 @@ func TestNewCanvas(t *testing.T) {
 				{{X: 0, Y: 0}, {X: 3, Y: 0}, {X: 3, Y: 2}, {X: 0, Y: 2}},
 				{{X: 1, Y: 1}, {X: 2, Y: 1}},
 			},
+			false,
 		},
 
 		// 5 Concave pieces
@@ -134,6 +140,7 @@ func TestNewCanvas(t *testing.T) {
 					{X: 4, Y: 18}, {X: 0, Y: 18}, {X: 0, Y: 16}, {X: 4, Y: 16},
 				},
 			},
+			false,
 		},
 
 		// 6 Inner boxes
@@ -156,6 +163,7 @@ func TestNewCanvas(t *testing.T) {
 				{{X: 0, Y: 0}, {X: 6, Y: 0}, {X: 6, Y: 6}, {X: 0, Y: 6}},
 				{{X: 2, Y: 2}, {X: 4, Y: 2}, {X: 4, Y: 4}, {X: 2, Y: 4}},
 			},
+			false,
 		},
 
 		// 7 Real world diagram example
@@ -240,6 +248,7 @@ func TestNewCanvas(t *testing.T) {
 				{{X: 15, Y: 18}, {X: 18, Y: 18}},
 				{{X: 13, Y: 23}, {X: 20, Y: 23}},
 			},
+			false,
 		},
 
 		// 8 Interwined lines.
@@ -270,7 +279,9 @@ func TestNewCanvas(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			false,
 		},
+
 		// 9 Indented box
 		{
 			[]string{
@@ -282,7 +293,9 @@ func TestNewCanvas(t *testing.T) {
 			[]string{"Path{[(9,1) (10,1) (11,1) (11,2) (11,3) (10,3) (9,3) (9,2)]}"},
 			[]string{""},
 			[][]Point{{{X: 9, Y: 1}, {X: 11, Y: 1}, {X: 11, Y: 3}, {X: 9, Y: 3}}},
+			false,
 		},
+
 		// 10 Diagonal lines with arrows
 		{
 			[]string{
@@ -296,8 +309,11 @@ func TestNewCanvas(t *testing.T) {
 			[]string{"", ""},
 			[][]Point{
 				{{X: 0, Y: 0, Hint: 2}, {X: 4, Y: 4, Hint: 3}},
-				{{X: 11, Y: 0, Hint: 2}, {X: 7, Y: 4, Hint: 3}}},
+				{{X: 11, Y: 0, Hint: 2}, {X: 7, Y: 4, Hint: 3}},
+			},
+			false,
 		},
+
 		// 11 Diagonal lines forming an object
 		{
 			[]string{
@@ -324,7 +340,9 @@ func TestNewCanvas(t *testing.T) {
 				{X: 0, Y: 6},
 				{X: 0, Y: 3},
 			}},
+			false,
 		},
+
 		// 12 A2S logo
 		{
 			[]string{
@@ -367,6 +385,51 @@ func TestNewCanvas(t *testing.T) {
 				{{X: 13, Y: 6}},
 				{{X: 20, Y: 6}, {X: 22, Y: 6}},
 			},
+			false,
+		},
+
+		// 13 Ticks and dots in lines.
+		{
+			[]string{
+				" ------x----->",
+				"",
+				" <-----o------",
+			},
+			[]string{"Path{[(1,0) (2,0) (3,0) (4,0) (5,0) (6,0) (7,0) (8,0) (9,0) (10,0) (11,0) (12,0) (13,0)]}", "Path{[(1,2) (2,2) (3,2) (4,2) (5,2) (6,2) (7,2) (8,2) (9,2) (10,2) (11,2) (12,2) (13,2)]}"},
+			[]string{"", ""},
+			[][]Point{
+				{
+					{X: 1, Y: 0, Hint: 0},
+					{X: 2, Y: 0, Hint: 0},
+					{X: 3, Y: 0, Hint: 0},
+					{X: 4, Y: 0, Hint: 0},
+					{X: 5, Y: 0, Hint: 0},
+					{X: 6, Y: 0, Hint: 0},
+					{X: 7, Y: 0, Hint: 4},
+					{X: 8, Y: 0, Hint: 0},
+					{X: 9, Y: 0, Hint: 0},
+					{X: 10, Y: 0, Hint: 0},
+					{X: 11, Y: 0, Hint: 0},
+					{X: 12, Y: 0, Hint: 0},
+					{X: 13, Y: 0, Hint: 3},
+				},
+				{
+					{X: 1, Y: 2, Hint: 2},
+					{X: 2, Y: 2, Hint: 0},
+					{X: 3, Y: 2, Hint: 0},
+					{X: 4, Y: 2, Hint: 0},
+					{X: 5, Y: 2, Hint: 0},
+					{X: 6, Y: 2, Hint: 0},
+					{X: 7, Y: 2, Hint: 5},
+					{X: 8, Y: 2, Hint: 0},
+					{X: 9, Y: 2, Hint: 0},
+					{X: 10, Y: 2, Hint: 0},
+					{X: 11, Y: 2, Hint: 0},
+					{X: 12, Y: 2, Hint: 0},
+					{X: 13, Y: 2, Hint: 0},
+				},
+			},
+			true,
 		},
 	}
 	for i, line := range data {
@@ -381,8 +444,12 @@ func TestNewCanvas(t *testing.T) {
 		if line.texts != nil {
 			ut.AssertEqualIndex(t, i, line.texts, getTexts(objs))
 		}
-		if line.corners != nil {
-			ut.AssertEqualIndex(t, i, line.corners, getCorners(objs))
+		if line.points != nil {
+			if line.allPoints == false {
+				ut.AssertEqualIndex(t, i, line.points, getCorners(objs))
+			} else {
+				ut.AssertEqualIndex(t, i, line.points, getPoints(objs))
+			}
 		}
 	}
 }

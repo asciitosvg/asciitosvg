@@ -25,6 +25,7 @@ func TestCanvasToSVG(t *testing.T) {
 			},
 			1677,
 		},
+
 		// 1 Box with non-existent ref
 		{
 			[]string{
@@ -34,6 +35,7 @@ func TestCanvasToSVG(t *testing.T) {
 			},
 			1763,
 		},
+
 		// 2 Box with ref, change background color of container with #RRGGBB
 		{
 			[]string{
@@ -45,6 +47,7 @@ func TestCanvasToSVG(t *testing.T) {
 			},
 			1858,
 		},
+
 		// 3 Box with ref && fill, change label
 		{
 			[]string{
@@ -56,6 +59,7 @@ func TestCanvasToSVG(t *testing.T) {
 			},
 			1826,
 		},
+
 		// 4 Box with ref && fill && label, remove ref
 		{
 			[]string{
@@ -66,6 +70,16 @@ func TestCanvasToSVG(t *testing.T) {
 				"[a]: {\"fill\":\"#000000\",\"a2s:label\":\"abcd\",\"a2s:delref\":1}",
 			},
 			1764,
+		},
+
+		// 5 Ticks and dots in lines.
+		{
+			[]string{
+				" ------x----->",
+				"",
+				" <-----o------",
+			},
+			1968,
 		},
 	}
 	for i, line := range data {
