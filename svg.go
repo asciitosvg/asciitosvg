@@ -97,7 +97,11 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 	}
 
 	// 3 passes, first closed paths, then open paths, then text.
-	io.WriteString(b, "  <g id=\"closed\" filter=\"url(#dsFilter)\" stroke=\"#000\" stroke-width=\"2\" fill=\"none\">\n")
+	if noBlur {
+		io.WriteString(b, "  <g id=\"closed\" stroke=\"#000\" stroke-width=\"2\" fill=\"none\">\n")
+	} else {
+		io.WriteString(b, "  <g id=\"closed\" filter=\"url(#dsFilter)\" stroke=\"#000\" stroke-width=\"2\" fill=\"none\">\n")
+	}
 	for i, obj := range c.Objects() {
 		if obj.IsClosed() && !obj.IsText() {
 			opts := ""
