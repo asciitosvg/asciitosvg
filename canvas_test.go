@@ -433,7 +433,7 @@ func TestNewCanvas(t *testing.T) {
 		},
 	}
 	for i, line := range data {
-		c, err := NewCanvas([]byte(strings.Join(line.input, "\n")), 9)
+		c, err := NewCanvas([]byte(strings.Join(line.input, "\n")), 9, true)
 		if err != nil {
 			t.Fatalf("Test %d: error creating canvas: %s", i, err)
 		}
@@ -512,7 +512,7 @@ func TestNewCanvasBroken(t *testing.T) {
 		},
 	}
 	for i, line := range data {
-		c, err := NewCanvas([]byte(strings.Join(line.input, "\n")), 9)
+		c, err := NewCanvas([]byte(strings.Join(line.input, "\n")), 9, true)
 		if err != nil {
 			t.Fatalf("Test %d: error creating canvas: %s", i, err)
 		}
@@ -605,7 +605,7 @@ func BenchmarkT(b *testing.B) {
 	}
 	expected := 30 * b.N
 	b.ResetTimer()
-	c, err := NewCanvas(input, 8)
+	c, err := NewCanvas(input, 8, true)
 	if err != nil {
 		b.Fatalf("Error creating canvas: %s", err)
 	}

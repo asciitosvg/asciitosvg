@@ -34,7 +34,7 @@ type Canvas interface {
 // NewCanvas returns a new Canvas, initialized from the provided data. If tabWidth is set to a non-negative
 // value, that value will be used to convert tabs to spaces within the grid. Creation of the Canvas
 // can fail if the diagram contains invalid UTF-8 sequences.
-func NewCanvas(data []byte, tabWidth int) (Canvas, error) {
+func NewCanvas(data []byte, tabWidth int, noBlur bool) (Canvas, error) {
 	c := &canvas{
 		options: map[string]map[string]interface{}{
 			"__a2s__closed__options__": map[string]interface{}{
@@ -42,6 +42,11 @@ func NewCanvas(data []byte, tabWidth int) (Canvas, error) {
 				"filter": "url(#dsFilter)",
 			},
 		},
+	}
+	if noBlur {
+		c.options["__a2s__closed__options__"] = map[string]interface{}{
+			"fill": "#fff",
+		}
 	}
 
 	lines := bytes.Split(data, []byte("\n"))

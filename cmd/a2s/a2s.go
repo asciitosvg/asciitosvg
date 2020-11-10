@@ -60,7 +60,7 @@ func mainImpl() error {
 		return err
 	}
 
-	canvas, err := asciitosvg.NewCanvas(input, *tabWidth)
+	canvas, err := asciitosvg.NewCanvas(input, *tabWidth, *noBlur)
 	if err != nil {
 		return err
 	}
