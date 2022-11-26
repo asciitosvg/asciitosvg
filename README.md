@@ -78,7 +78,7 @@ ultimately ran into the issues described above. Hence this project.
 
 To get the CLI tool, make sure `$GOPATH/bin` is in your `$PATH`. Run:
 
-    $ go get github.com/asciitosvg/asciitosvg/cmd/a2s
+    $ go install github.com/asciitosvg/asciitosvg/cmd/a2s@latest
     $ a2s -h
      .-------------------------.
      |                         |
