@@ -8,9 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -55,6 +57,7 @@ func NewCanvas(data []byte, tabWidth int, noBlur bool) (Canvas, error) {
 	// Diagrams will often not be padded to a uniform width. To overcome this, we scan over
 	// each line and figure out which is the longest. This becomes the width of the canvas.
 	for i, line := range lines {
+		line = bytes.TrimSuffix(line, []byte("\r"))
 		if ok := utf8.Valid(line); !ok {
 			return nil, fmt.Errorf("invalid UTF-8 encoding on line %d", i)
 		}
@@ -87,48 +90,41 @@ func NewCanvas(data []byte, tabWidth int, noBlur bool) (Canvas, error) {
 		}
 	}
 
-	c.findObjects()
+	if err := c.findObjects(); err != nil {
+		return nil, err
+	}
 	return c, nil
 }
 
 // The expandTabs function pads tab characters to the specified width of spaces for the provided
 // line of input. We cannot simply pad based on byte-offset since our input is UTF-8 encoded.
-// Fortunately, we can assume that this function is called that the line contains only valid
-// UTF-8 sequences. We first decode the line rune-wise, and use individual runes to figure out
-// where we are within the line. When we encounter a tab character, we expand based on our rune
-// index.
+// Fortunately, we can assume that this function is called when the line contains only valid
+// UTF-8 sequences. We decode the line rune-wise, tracking our column rune index, and expand
+// tabs to the next tabstop based on that rune index.
 func expandTabs(line []byte, tabWidth int) ([]byte, error) {
-	// Initial sizing of our output slice assumes no UTF-8 bytes or tabs, since this is often
-	// the common case.
 	out := make([]byte, 0, len(line))
 
-	// pos tracks our position in the input byte slice, while index tracks our position in the
-	// resulting output slice.
 	pos := 0
 	index := 0
-	for _, c := range line {
-		if c == '\t' {
-			// Loop over the remaining space count for this particular tabstop until
-			// the next, replacing each position with a space.
-			for s := tabWidth - (pos % tabWidth); s > 0; s-- {
-				out = append(out, ' ')
+	for pos < len(line) {
+		if line[pos] == '\t' {
+			if tabWidth > 0 {
+				for s := tabWidth - (index % tabWidth); s > 0; s-- {
+					out = append(out, ' ')
+					index++
+				}
+			} else if tabWidth < 0 {
+				out = append(out, '\t')
 				index++
 			}
 			pos++
 		} else {
-			// We need to know the byte length of the rune at this position so that we
-			// can account for our tab expansion properly. So we first decode the rune
-			// at this position to get its length in bytes, plop that rune back into our
-			// output slice, and account accordingly.
 			r, l := utf8.DecodeRune(line[pos:])
-			if r == utf8.RuneError {
+			if r == utf8.RuneError && l == 1 {
 				return nil, fmt.Errorf("invalid rune at byte offset %d; rune offset %d", pos, index)
 			}
 
-			enc := make([]byte, l)
-			utf8.EncodeRune(enc, r)
-			out = append(out, enc...)
-
+			out = append(out, line[pos:pos+l]...)
 			pos += l
 			index++
 		}
@@ -164,27 +160,38 @@ func (c *canvas) Options() map[string]map[string]interface{} {
 }
 
 func (c *canvas) EnclosingObjects(p Point) []Object {
-	maxTL := Point{X: -1, Y: -1}
-
-	var q []Object
+	type hit struct {
+		obj   Object
+		area2 float64
+	}
+	var hits []hit
 	for _, o := range c.objects {
 		// An object can't really contain another unless it is a polygon.
-		if !o.IsClosed() {
+		if !o.IsClosed() || !o.HasPoint(p) {
 			continue
 		}
-
-		if o.HasPoint(p) && o.Corners()[0].X > maxTL.X && o.Corners()[0].Y > maxTL.Y {
-			q = append(q, o)
-			maxTL.X = o.Corners()[0].X
-			maxTL.Y = o.Corners()[0].Y
-		}
+		hits = append(hits, hit{
+			obj:   o,
+			area2: math.Abs(float64(signedArea2(o.Corners()))),
+		})
+	}
+	if len(hits) == 0 {
+		return nil
 	}
 
+	sort.SliceStable(hits, func(i, j int) bool {
+		return hits[i].area2 < hits[j].area2
+	})
+
+	q := make([]Object, len(hits))
+	for i, h := range hits {
+		q[i] = h.obj
+	}
 	return q
 }
 
 // findObjects finds all objects (lines, polygons, and text) within the underlying grid.
-func (c *canvas) findObjects() {
+func (c *canvas) findObjects() error {
 	p := Point{}
 
 	// Find any new paths by starting with a point that wasn't yet visited, beginning at the top
@@ -213,7 +220,8 @@ func (c *canvas) findObjects() {
 		}
 	}
 
-	// A second pass through the grid attempts to identify any text within the grid.
+	// Second pass: identify any text and tag definitions within the unvisited grid cells.
+	var coordTags []string
 	for y := 0; y < c.size.Y; y++ {
 		p.Y = y
 		for x := 0; x < c.size.X; x++ {
@@ -222,22 +230,47 @@ func (c *canvas) findObjects() {
 				continue
 			}
 			if ch := c.at(p); ch.isTextStart() {
-				obj := c.scanText(p)
+				obj, coordTag, err := c.scanText(p)
+				if err != nil {
+					return err
+				}
+				if coordTag != "" {
+					coordTags = append(coordTags, coordTag)
+				}
 
-				// scanText will return nil if the text at this area is simply
-				// setting options on a container object.
 				if obj == nil {
 					continue
 				}
-				for _, p := range obj.Points() {
-					c.visit(p)
+				for _, pt := range obj.Points() {
+					c.visit(pt)
 				}
 				c.objects = append(c.objects, obj)
 			}
 		}
 	}
 
+	// Apply [X,Y] coordinate-based tags after all objects have been discovered.
+	for _, t := range coordTags {
+		if matches := objTagRE.FindStringSubmatch(t); matches != nil {
+			targetX, errX := strconv.ParseInt(matches[1], 10, 0)
+			targetY, errY := strconv.ParseInt(matches[2], 10, 0)
+			if errX == nil && errY == nil {
+				for _, o := range c.objects {
+					if oo, ok := o.(*object); ok && oo.isTagDef {
+						continue
+					}
+					corner := o.Corners()[0]
+					if corner.X == int(targetX) && corner.Y == int(targetY) {
+						o.SetTag(t)
+						break
+					}
+				}
+			}
+		}
+	}
+
 	sort.Sort(c.objects)
+	return nil
 }
 
 // scanPath tries to complete a total path (for lines or polygons) starting with some partial path.
@@ -375,25 +408,23 @@ func (c *canvas) next(pos Point) []Point {
 }
 
 // Used for matching [X, Y]: {...} tag definitions. These definitions target specific objects.
-var objTagRE = regexp.MustCompile(`(\d+)\s*,\s*(\d+)$`)
+var objTagRE = regexp.MustCompile(`^\s*(\d+)\s*,\s*(\d+)\s*$`)
 
 // scanText extracts a line of text.
-func (c *canvas) scanText(start Point) Object {
+func (c *canvas) scanText(start Point) (Object, string, error) {
 	obj := &object{points: []Point{start}, isText: true}
 	whiteSpaceStreak := 0
 	cur := start
 
 	tagged := 0
-	tag := []rune{}
-	tagDef := []rune{}
+	var tag []rune
+	var tagDef []rune
+
+	if c.at(start).isObjectStartTag() {
+		tagged = 1
+	}
 
 	for c.canRight(cur) {
-		if cur.X == start.X && c.at(cur).isObjectStartTag() {
-			tagged++
-		} else if cur.X > start.X && c.at(cur).isObjectEndTag() {
-			tagged++
-		}
-
 		cur.X++
 		if c.isVisited(cur) {
 			// If the point is already visited, we hit a polygon or a line.
@@ -403,26 +434,29 @@ func (c *canvas) scanText(start Point) Object {
 		if !ch.isTextCont() {
 			break
 		}
-		if tagged == 0 && ch.isSpace() {
-			whiteSpaceStreak++
-			// Stop when we see 3 consecutive whitespace points.
-			if whiteSpaceStreak > 2 {
-				break
+		if tagged != 1 && tagged != 3 {
+			if ch.isSpace() {
+				whiteSpaceStreak++
+				// Stop when we see 3 consecutive whitespace points.
+				if whiteSpaceStreak > 2 {
+					break
+				}
+			} else {
+				whiteSpaceStreak = 0
 			}
-		} else {
-			whiteSpaceStreak = 0
 		}
 
 		switch tagged {
 		case 1:
-			if !c.at(cur).isObjectEndTag() {
+			if ch.isObjectEndTag() {
+				tagged = 2
+			} else {
 				tag = append(tag, rune(ch))
 			}
 		case 2:
-			if c.at(cur).isTagDefinitionSeparator() {
-				tagged++
-			} else {
-				tagged = -1
+			prev := obj.points[len(obj.points)-1]
+			if c.at(prev).isObjectEndTag() && ch.isTagDefinitionSeparator() {
+				tagged = 3
 			}
 		case 3:
 			tagDef = append(tagDef, rune(ch))
@@ -431,47 +465,36 @@ func (c *canvas) scanText(start Point) Object {
 		obj.points = append(obj.points, cur)
 	}
 
-	// If we found a start and end tag marker, we either need to assign the tag to the object,
-	// or we need to assign the specified options to the global canvas option space.
-	if tagged == 2 {
+	// If we found a start and end tag marker, we either assign the tag to the enclosing
+	// object, or parse the JSON tag definition into the canvas option space.
+	coordTag := ""
+	if tagged == 2 && len(tag) > 0 {
 		t := string(tag)
-		if container := c.EnclosingObjects(start); container != nil {
+		if container := c.EnclosingObjects(start); len(container) > 0 {
 			container[0].SetTag(t)
 		}
 
 		// The tag applies to the text object as well so that properties like
 		// a2s:label can be set.
 		obj.SetTag(t)
-	} else if tagged == 3 {
-		t := string(tag)
-
-		// A tag definition targeting an object will not be found within any object; we need
-		// to do that calculation here.
-		if matches := objTagRE.FindStringSubmatch(t); matches != nil {
-			if targetX, err := strconv.ParseInt(matches[1], 10, 0); err == nil {
-				if targetY, err := strconv.ParseInt(matches[2], 10, 0); err == nil {
-					for i, o := range c.objects {
-						corner := o.Corners()[0]
-						if corner.X == int(targetX) && corner.Y == int(targetY) {
-							c.objects[i].SetTag(t)
-							break
-						}
-					}
-				}
+	} else if tagged == 3 && len(tag) > 0 {
+		defStr := strings.TrimSpace(string(tagDef))
+		if strings.HasPrefix(defStr, "{") {
+			var m map[string]interface{}
+			if err := json.Unmarshal([]byte(defStr), &m); err != nil {
+				return nil, "", fmt.Errorf("invalid tag definition for [%s]: %w", string(tag), err)
 			}
-		}
-		// This is a tag definition. Parse the JSON and assign the options to the canvas.
-		var m interface{}
-		def := []byte(string(tagDef))
-		if err := json.Unmarshal(def, &m); err != nil {
-			// TODO(dhobsd): Gross.
-			panic(err)
-		}
 
-		// The tag applies to the reference object as well, so that properties like
-		// a2s:delref can be set.
-		obj.SetTag(t)
-		c.options[t] = m.(map[string]interface{})
+			t := string(tag)
+			if objTagRE.MatchString(t) {
+				coordTag = t
+			}
+			// The tag applies to the reference object as well, so that properties like
+			// a2s:delref can be handled.
+			obj.isTagDef = true
+			obj.SetTag(t)
+			c.options[t] = m
+		}
 	}
 
 	// Trim the right side of the text object.
@@ -480,7 +503,7 @@ func (c *canvas) scanText(start Point) Object {
 	}
 
 	obj.seal(c)
-	return obj
+	return obj, coordTag, nil
 }
 
 func (c *canvas) at(p Point) char {

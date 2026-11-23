@@ -58,7 +58,7 @@ func parseHexColor(c string) (r, g, b int, err error) {
 
 // colorToRGB matches a color string and returns its RGB components.
 func colorToRGB(c string) (r, g, b int, err error) {
-	if c[0] == '#' {
+	if len(c) > 0 && c[0] == '#' {
 		return parseHexColor(c)
 	}
 
