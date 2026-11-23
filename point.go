@@ -21,6 +21,14 @@ const (
 	Tick
 	// Dot indicates the renderer should insert a filled dot in the path at this point.
 	Dot
+	// StartMarkerForward indicates the start point has an arrow pointing forward along the path.
+	StartMarkerForward
+	// EndMarkerReverse indicates the end point has an arrow pointing backward along the path.
+	EndMarkerReverse
+	// RoundedCuspDown indicates an unambiguous mid-edge '.' on a horizontal run that dips downward.
+	RoundedCuspDown
+	// RoundedCuspUp indicates an unambiguous mid-edge '\'' on a horizontal run that rises upward.
+	RoundedCuspUp
 )
 
 // A Point is an X,Y coordinate in the diagram's grid. The grid represents (0, 0) as the top-left
@@ -37,30 +45,4 @@ type Point struct {
 // String implements fmt.Stringer on Point.
 func (p Point) String() string {
 	return fmt.Sprintf("(%d,%d)", p.X, p.Y)
-}
-
-// isHorizontal returns true if p1 and p2 are horizontally aligned.
-func isHorizontal(p1, p2 Point) bool {
-	d := p1.X - p2.X
-	return d <= 1 && d >= -1 && p1.Y == p2.Y
-}
-
-// isVertical returns true if p1 and p2 are vertically aligned.
-func isVertical(p1, p2 Point) bool {
-	d := p1.Y - p2.Y
-	return d <= 1 && d >= -1 && p1.X == p2.X
-}
-
-// The following functions return true when the diagonals are connected in various compass directions.
-func isDiagonalSE(p1, p2 Point) bool {
-	return p1.X-p2.X == -1 && p1.Y-p2.Y == -1
-}
-func isDiagonalSW(p1, p2 Point) bool {
-	return p1.X-p2.X == 1 && p1.Y-p2.Y == -1
-}
-func isDiagonalNW(p1, p2 Point) bool {
-	return p1.X-p2.X == 1 && p1.Y-p2.Y == 1
-}
-func isDiagonalNE(p1, p2 Point) bool {
-	return p1.X-p2.X == -1 && p1.Y-p2.Y == 1
 }

@@ -139,7 +139,7 @@ following characters:
  * `-` or `=`: Horizontal lines, solid or dashed (respectively).
  * `|` or `:`: Vertical lines, solid or dashed (respectively).
  * `\` or `/`: Diagonal lines.
- * `+`: Edge of a line segment, or an angled corner.
+ * `+` or `#`: Edge of a line segment, or an angled corner.
 
 Ticks and dots can be added into the middle of a line segment using `x` and
 `o`, respectively. Note that these characters cannot be inserted into diagonal
@@ -148,8 +148,8 @@ lines, and they cannot begin a line.
 To draw a polygon or turn a line, corners are necessary. The following
 characters are valid corner characters:
 
- * `'` and `.`: Quadratic Bézier corners
- * `+`: Angled corners.
+ * `'` and `.`: Quadratic Bézier corners (when placed unambiguously mid-way along a horizontal run, `.` dips downward and `'` rises upward as a smooth rounded cusp, as in the `'a'` of the logo)
+ * `+` and `#`: Angled corners.
 
 The `+` token is a control point for lines. It denotes an area where a line
 intersects another line or traverses a box boundary.
@@ -236,7 +236,6 @@ Features that are currently unimplemented include:
 
  * Custom objects, including the `a2s:type` format specifier, are not yet
  implemented.
- * No support is planned for angled corners using `#`.
  * No support is planned for undirected lines using `*`.
 
 ## External Resources

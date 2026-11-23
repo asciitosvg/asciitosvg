@@ -196,19 +196,18 @@ func TestNewCanvas(t *testing.T) {
 			},
 			[]string{
 				"Path{[(6,0) (7,0) (8,0) (9,0) (10,0) (11,0) (12,0) (13,0) (13,1) (13,2) (12,2) (11,2) (10,2) (9,2) (8,2) (7,2) (6,2) (6,1)]}",
-				"Path{[(14,1) (15,1) (16,1) (17,1) (18,1) (19,1) (20,1) (21,1) (22,1) (23,1) (24,1) (25,1) (26,1) (27,1) (28,1) (29,1) (30,1) (31,1) (32,1) (33,1) (34,1) (35,1) (36,1) (36,2) (36,3)]}",
-				"Path{[(14,1) (15,1) (16,1) (17,1) (18,1) (19,1) (20,1) (21,1) (22,1) (23,1) (24,1) (25,1) (26,1) (27,1) (27,2) (27,3) (27,4) (27,5) (27,6) (27,7) (27,8) (27,9) (27,10) (27,11) (27,12) (27,13) (27,14) (27,15) (27,16) (27,17) (27,18) (27,19) (27,20) (27,21) (27,22) (27,23) (26,23) (25,23) (24,23) (23,23) (22,23)]}",
-				"Path{[(10,3) (10,4)]}",
+				"Path{[(13,1) (14,1) (15,1) (16,1) (17,1) (18,1) (19,1) (20,1) (21,1) (22,1) (23,1) (24,1) (25,1) (26,1) (27,1) (28,1) (29,1) (30,1) (31,1) (32,1) (33,1) (34,1) (35,1) (36,1) (36,2) (36,3)]}",
+				"Path{[(27,1) (27,2) (27,3) (27,4) (27,5) (27,6) (27,7) (27,8) (27,9) (27,10) (27,11) (27,12) (27,13) (27,14) (27,15) (27,16) (27,17) (27,18) (27,19) (27,20) (27,21) (27,22) (27,23) (26,23) (25,23) (24,23) (23,23) (22,23)]}",
+				"Path{[(10,2) (10,3) (10,4)]}",
 				"Path{[(31,4) (32,4) (33,4) (34,4) (35,4) (36,4) (37,4) (38,4) (39,4) (40,4) (40,5) (40,6) (39,6) (38,6) (37,6) (36,6) (35,6) (34,6) (33,6) (32,6) (31,6) (31,5)]}",
 				"Path{[(6,5) (7,5) (8,5) (9,5) (10,5) (11,5) (12,5) (13,5) (13,6) (13,7) (12,7) (11,7) (10,7) (9,7) (8,7) (7,7) (6,7) (6,6)]}",
-				"Path{[(9,8) (9,9)]}",
-				"Path{[(9,9) (8,9) (7,9) (6,9) (5,9) (4,9) (3,9) (3,10) (3,11)]}",
-				"Path{[(9,9) (10,9) (11,9) (12,9) (13,9) (14,9) (15,9) (16,9) (17,9) (17,10) (17,11)]}",
+				"Path{[(9,7) (9,8) (9,9)]}",
+				"Path{[(3,11) (3,10) (3,9) (4,9) (5,9) (6,9) (7,9) (8,9) (9,9) (10,9) (11,9) (12,9) (13,9) (14,9) (15,9) (16,9) (17,9) (17,10) (17,11)]}",
 				"Path{[(0,12) (1,12) (2,12) (3,12) (4,12) (5,12) (6,12) (7,12) (7,13) (7,14) (6,14) (5,14) (4,14) (3,14) (2,14) (1,14) (0,14) (0,13)]}",
 				"Path{[(13,12) (14,12) (15,12) (16,12) (17,12) (18,12) (19,12) (20,12) (20,13) (20,14) (19,14) (18,14) (17,14) (16,14) (15,14) (14,14) (13,14) (13,13)]}",
-				"Path{[(16,15) (16,16)]}",
+				"Path{[(16,14) (16,15) (16,16)]}",
 				"Path{[(14,17) (15,17) (16,17) (17,17) (18,17) (19,17) (19,18) (19,19) (18,19) (17,19) (16,19) (15,19) (14,19) (14,18)]}",
-				"Path{[(16,20) (16,21)]}",
+				"Path{[(16,19) (16,20) (16,21)]}",
 				"Path{[(12,22) (13,22) (14,22) (15,22) (16,22) (17,22) (18,22) (19,22) (20,22) (21,22) (21,23) (21,24) (20,24) (19,24) (18,24) (17,24) (16,24) (15,24) (14,24) (13,24) (12,24) (12,23)]}",
 				"Text{(7,1) \"Editor\"}",
 				"Text{(32,5) \"Document\"}",
@@ -219,24 +218,23 @@ func TestNewCanvas(t *testing.T) {
 				"Text{(13,23) \"Document\"}",
 			},
 			[]string{
-				"", "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+				"", "", "", "", "", "", "", "", "", "", "", "", "", "",
 				"Editor", "Document", "Window", "Window", "Window", "View", "Document",
 			},
 			[][]Point{
 				{{X: 6, Y: 0}, {X: 13, Y: 0}, {X: 13, Y: 2}, {X: 6, Y: 2}},
-				{{X: 14, Y: 1}, {X: 36, Y: 1}, {X: 36, Y: 3, Hint: 3}},
-				{{X: 14, Y: 1}, {X: 27, Y: 1}, {X: 27, Y: 23}, {X: 22, Y: 23, Hint: 3}},
-				{{X: 10, Y: 3}, {X: 10, Y: 4, Hint: 3}},
+				{{X: 13, Y: 1}, {X: 36, Y: 1}, {X: 36, Y: 3, Hint: 3}},
+				{{X: 27, Y: 1}, {X: 27, Y: 23}, {X: 22, Y: 23, Hint: 3}},
+				{{X: 10, Y: 2}, {X: 10, Y: 4, Hint: 3}},
 				{{X: 31, Y: 4}, {X: 40, Y: 4}, {X: 40, Y: 6}, {X: 31, Y: 6}},
 				{{X: 6, Y: 5}, {X: 13, Y: 5}, {X: 13, Y: 7}, {X: 6, Y: 7}},
-				{{X: 9, Y: 8}, {X: 9, Y: 9}},
-				{{X: 9, Y: 9}, {X: 3, Y: 9}, {X: 3, Y: 11, Hint: 3}},
-				{{X: 9, Y: 9}, {X: 17, Y: 9}, {X: 17, Y: 11, Hint: 3}},
+				{{X: 9, Y: 7}, {X: 9, Y: 9}},
+				{{X: 3, Y: 11, Hint: 2}, {X: 3, Y: 9}, {X: 17, Y: 9}, {X: 17, Y: 11, Hint: 3}},
 				{{X: 0, Y: 12}, {X: 7, Y: 12}, {X: 7, Y: 14}, {X: 0, Y: 14}},
 				{{X: 13, Y: 12}, {X: 20, Y: 12}, {X: 20, Y: 14}, {X: 13, Y: 14}},
-				{{X: 16, Y: 15}, {X: 16, Y: 16, Hint: 3}},
+				{{X: 16, Y: 14}, {X: 16, Y: 16, Hint: 3}},
 				{{X: 14, Y: 17}, {X: 19, Y: 17}, {X: 19, Y: 19}, {X: 14, Y: 19}},
-				{{X: 16, Y: 20}, {X: 16, Y: 21, Hint: 3}},
+				{{X: 16, Y: 19}, {X: 16, Y: 21, Hint: 3}},
 				{{X: 12, Y: 22}, {X: 21, Y: 22}, {X: 21, Y: 24}, {X: 12, Y: 24}},
 				{{X: 7, Y: 1}, {X: 12, Y: 1}},
 				{{X: 32, Y: 5}, {X: 39, Y: 5}},
@@ -357,13 +355,13 @@ func TestNewCanvas(t *testing.T) {
 			[]string{
 				"Path{[(0,0) (1,0) (2,0) (3,0) (4,0) (5,0) (6,0) (7,0) (8,0) (9,0) (10,0) (11,0) (12,0) (13,0) (14,0) (15,0) (16,0) (17,0) (18,0) (19,0) (20,0) (21,0) (22,0) (23,0) (24,0) (25,0) (26,0) (26,1) (26,2) (26,3) (26,4) (26,5) (26,6) (26,7) (26,8) (25,8) (24,8) (23,8) (22,8) (21,8) (20,8) (19,8) (18,8) (17,8) (16,8) (15,8) (14,8) (13,8) (12,8) (11,8) (10,8) (9,8) (8,8) (7,8) (6,8) (5,8) (4,8) (3,8) (2,8) (1,8) (0,8) (0,7) (0,6) (0,5) (0,4) (0,3) (0,2) (0,1)]}",
 				"Path{[(2,2) (3,2) (4,2) (5,2) (6,2) (7,2) (8,2) (8,3) (8,4) (8,5) (7,5) (6,5) (5,5) (4,5) (3,5) (2,5) (2,4) (2,3)]}",
-				"Path{[(2,2) (3,2) (4,2) (5,2) (6,2) (7,2) (8,2) (8,3) (8,4) (8,5) (7,5) (6,5) (6,4) (5,4) (4,4) (4,3) (5,3) (6,3)]}",
-				"Path{[(10,2) (11,2) (12,2) (13,2) (14,2) (15,2) (16,2) (16,3) (16,4) (15,4) (14,4) (13,4)]}",
 				"Path{[(10,2) (11,2) (12,2) (13,2) (14,2) (15,2) (16,2) (16,3) (16,4) (16,5) (15,5) (14,5) (13,5) (12,5) (11,5) (10,5) (10,4) (10,3)]}",
-				"Path{[(18,2) (19,2) (20,2) (21,2) (22,2) (23,2) (24,2) (24,3) (23,3) (22,3) (21,3)]}",
-				"Path{[(18,2) (19,2) (20,2) (21,2) (22,2) (23,2) (24,2) (24,3) (24,4) (24,5) (23,5) (22,5) (21,5) (20,5) (19,5) (18,5) (18,4) (19,4) (20,4) (21,4)]}",
 				"Path{[(18,2) (19,2) (20,2) (21,2) (22,2) (23,2) (24,2) (24,3) (24,4) (24,5) (23,5) (22,5) (21,5) (20,5) (19,5) (18,5) (18,4) (18,3)]}",
+				"Path{[(4,3) (5,3) (6,3) (6,4) (5,4) (4,4)]}",
 				"Path{[(10,3) (11,3) (12,3) (13,3)]}",
+				"Path{[(21,3) (22,3) (23,3) (24,3)]}",
+				"Path{[(13,4) (14,4) (15,4) (16,4)]}",
+				"Path{[(18,4) (19,4) (20,4) (21,4)]}",
 				"Text{(3,6) \"ascii\"}",
 				"Text{(13,6) \"2\"}",
 				"Text{(20,6) \"svg\"}",
@@ -372,13 +370,13 @@ func TestNewCanvas(t *testing.T) {
 			[][]Point{
 				{{X: 0, Y: 0}, {X: 26, Y: 0}, {X: 26, Y: 8}, {X: 0, Y: 8}},
 				{{X: 2, Y: 2}, {X: 8, Y: 2}, {X: 8, Y: 5}, {X: 2, Y: 5}},
-				{{X: 2, Y: 2}, {X: 8, Y: 2}, {X: 8, Y: 5}, {X: 6, Y: 5}, {X: 6, Y: 4}, {X: 4, Y: 4}, {X: 4, Y: 3}, {X: 6, Y: 3}},
-				{{X: 10, Y: 2}, {X: 16, Y: 2}, {X: 16, Y: 4}, {X: 13, Y: 4, Hint: 3}},
 				{{X: 10, Y: 2}, {X: 16, Y: 2}, {X: 16, Y: 5}, {X: 10, Y: 5}},
-				{{X: 18, Y: 2}, {X: 24, Y: 2}, {X: 24, Y: 3}, {X: 21, Y: 3, Hint: 3}},
-				{{X: 18, Y: 2}, {X: 24, Y: 2}, {X: 24, Y: 5}, {X: 18, Y: 5}, {X: 18, Y: 4}, {X: 21, Y: 4, Hint: 3}},
 				{{X: 18, Y: 2}, {X: 24, Y: 2}, {X: 24, Y: 5}, {X: 18, Y: 5}},
+				{{X: 4, Y: 3}, {X: 6, Y: 3}, {X: 6, Y: 4}, {X: 4, Y: 4}},
 				{{X: 10, Y: 3}, {X: 13, Y: 3, Hint: 3}},
+				{{X: 21, Y: 3, Hint: 2}, {X: 24, Y: 3}},
+				{{X: 13, Y: 4, Hint: 2}, {X: 16, Y: 4}},
+				{{X: 18, Y: 4}, {X: 21, Y: 4, Hint: 3}},
 				{{X: 3, Y: 6}, {X: 7, Y: 6}},
 				{{X: 13, Y: 6}},
 				{{X: 20, Y: 6}, {X: 22, Y: 6}},
@@ -429,6 +427,177 @@ func TestNewCanvas(t *testing.T) {
 			},
 			true,
 		},
+
+		// 14 URL
+		{
+			[]string{
+				"github.com/foo/bar",
+			},
+			[]string{"Text{(0,0) \"github.com/foo/bar\"}"},
+			[]string{"github.com/foo/bar"},
+			[][]Point{{{X: 0, Y: 0}, {X: 17, Y: 0}}},
+			false,
+		},
+
+		// 15 Merged boxes
+		{
+			[]string{
+				"+-+-+",
+				"| | |",
+				"+-+-+",
+			},
+			[]string{
+				"Path{[(0,0) (1,0) (2,0) (2,1) (2,2) (1,2) (0,2) (0,1)]}",
+				"Path{[(2,0) (3,0) (4,0) (4,1) (4,2) (3,2) (2,2) (2,1)]}",
+			},
+			[]string{"", ""},
+			[][]Point{
+				{{X: 0, Y: 0}, {X: 2, Y: 0}, {X: 2, Y: 2}, {X: 0, Y: 2}},
+				{{X: 2, Y: 0}, {X: 4, Y: 0}, {X: 4, Y: 2}, {X: 2, Y: 2}},
+			},
+			false,
+		},
+
+		// 16 Adjacent boxes
+		{
+			[]string{
+				"+-++-+",
+				"| || |",
+				"+-++-+",
+			},
+			[]string{
+				"Path{[(0,0) (1,0) (2,0) (2,1) (2,2) (1,2) (0,2) (0,1)]}",
+				"Path{[(3,0) (4,0) (5,0) (5,1) (5,2) (4,2) (3,2) (3,1)]}",
+			},
+			[]string{"", ""},
+			[][]Point{
+				{{X: 0, Y: 0}, {X: 2, Y: 0}, {X: 2, Y: 2}, {X: 0, Y: 2}},
+				{{X: 3, Y: 0}, {X: 5, Y: 0}, {X: 5, Y: 2}, {X: 3, Y: 2}},
+			},
+			false,
+		},
+
+		// 17 Adjacent rounded boxes
+		{
+			[]string{
+				".--..--.",
+				"|  ||  |",
+				"'--''--'",
+			},
+			[]string{
+				"Path{[(0,0) (1,0) (2,0) (3,0) (3,1) (3,2) (2,2) (1,2) (0,2) (0,1)]}",
+				"Path{[(4,0) (5,0) (6,0) (7,0) (7,1) (7,2) (6,2) (5,2) (4,2) (4,1)]}",
+			},
+			[]string{"", ""},
+			[][]Point{
+				{{X: 0, Y: 0}, {X: 3, Y: 0}, {X: 3, Y: 2}, {X: 0, Y: 2}},
+				{{X: 4, Y: 0}, {X: 7, Y: 0}, {X: 7, Y: 2}, {X: 4, Y: 2}},
+			},
+			false,
+		},
+
+		// 18 Stacked sharp and rounded boxes
+		{
+			[]string{
+				"+--+",
+				"|  |",
+				"+--+",
+				"+--+",
+				"|  |",
+				"+--+",
+				".--.",
+				"|  |",
+				"'--'",
+				".--.",
+				"|  |",
+				"'--'",
+			},
+			[]string{
+				"Path{[(0,0) (1,0) (2,0) (3,0) (3,1) (3,2) (2,2) (1,2) (0,2) (0,1)]}",
+				"Path{[(0,3) (1,3) (2,3) (3,3) (3,4) (3,5) (2,5) (1,5) (0,5) (0,4)]}",
+				"Path{[(0,6) (1,6) (2,6) (3,6) (3,7) (3,8) (2,8) (1,8) (0,8) (0,7)]}",
+				"Path{[(0,9) (1,9) (2,9) (3,9) (3,10) (3,11) (2,11) (1,11) (0,11) (0,10)]}",
+			},
+			[]string{"", "", "", ""},
+			[][]Point{
+				{{X: 0, Y: 0}, {X: 3, Y: 0}, {X: 3, Y: 2}, {X: 0, Y: 2}},
+				{{X: 0, Y: 3}, {X: 3, Y: 3}, {X: 3, Y: 5}, {X: 0, Y: 5}},
+				{{X: 0, Y: 6}, {X: 3, Y: 6}, {X: 3, Y: 8}, {X: 0, Y: 8}},
+				{{X: 0, Y: 9}, {X: 3, Y: 9}, {X: 3, Y: 11}, {X: 0, Y: 11}},
+			},
+			false,
+		},
+
+		// 19 Adjacent parallel vertical and diagonal lines
+		{
+			[]string{
+				"||  //",
+				"|| //",
+				"||//",
+			},
+			[]string{
+				"Path{[(0,0) (0,1) (0,2)]}",
+				"Path{[(1,0) (1,1) (1,2)]}",
+				"Path{[(4,0) (3,1) (2,2)]}",
+				"Path{[(5,0) (4,1) (3,2)]}",
+			},
+			[]string{"", "", "", ""},
+			[][]Point{
+				{{X: 0, Y: 0}, {X: 0, Y: 2}},
+				{{X: 1, Y: 0}, {X: 1, Y: 2}},
+				{{X: 4, Y: 0}, {X: 2, Y: 2}},
+				{{X: 5, Y: 0}, {X: 3, Y: 2}},
+			},
+			false,
+		},
+
+		// 20 Straight crossings and adjacent elbows
+		{
+			[]string{
+				"  |   ---+  ",
+				"--+--    |--",
+				"  |      v  ",
+			},
+			[]string{
+				"Path{[(2,0) (2,1) (2,2)]}",
+				"Path{[(6,0) (7,0) (8,0) (9,0) (9,1) (9,2)]}",
+				"Path{[(0,1) (1,1) (2,1) (3,1) (4,1)]}",
+				"Path{[(9,1) (10,1) (11,1)]}",
+			},
+			[]string{"", "", "", ""},
+			[][]Point{
+				{{X: 2, Y: 0}, {X: 2, Y: 2}},
+				{{X: 6, Y: 0}, {X: 9, Y: 0}, {X: 9, Y: 2, Hint: 3}},
+				{{X: 0, Y: 1}, {X: 4, Y: 1}},
+				{{X: 9, Y: 1}, {X: 11, Y: 1}},
+			},
+			false,
+		},
+
+		// 21 Text containing slashes, ticks, dots, and punctuation inside a box
+		{
+			[]string{
+				"+-----------------+",
+				"| /home/dho/a2s   |",
+				"| yes / no x-axis |",
+				"| (hello) * |x|o| |",
+				"+-----------------+",
+			},
+			[]string{
+				"Path{[(0,0) (1,0) (2,0) (3,0) (4,0) (5,0) (6,0) (7,0) (8,0) (9,0) (10,0) (11,0) (12,0) (13,0) (14,0) (15,0) (16,0) (17,0) (18,0) (18,1) (18,2) (18,3) (18,4) (17,4) (16,4) (15,4) (14,4) (13,4) (12,4) (11,4) (10,4) (9,4) (8,4) (7,4) (6,4) (5,4) (4,4) (3,4) (2,4) (1,4) (0,4) (0,3) (0,2) (0,1)]}",
+				"Text{(2,1) \"/home/dho/a2s\"}",
+				"Text{(2,2) \"yes / no x-axis\"}",
+				"Text{(2,3) \"(hello) * |x|o|\"}",
+			},
+			[]string{"", "/home/dho/a2s", "yes / no x-axis", "(hello) * |x|o|"},
+			[][]Point{
+				{{X: 0, Y: 0}, {X: 18, Y: 0}, {X: 18, Y: 4}, {X: 0, Y: 4}},
+				{{X: 2, Y: 1}, {X: 14, Y: 1}},
+				{{X: 2, Y: 2}, {X: 16, Y: 2}},
+				{{X: 2, Y: 3}, {X: 16, Y: 3}},
+			},
+			false,
+		},
 	}
 	for i, line := range data {
 		c, err := NewCanvas([]byte(strings.Join(line.input, "\n")), 9, true)
@@ -452,78 +621,42 @@ func TestNewCanvas(t *testing.T) {
 	}
 }
 
-func TestNewCanvasBroken(t *testing.T) {
-	// These are the ones that do not give the desired result.
+func TestTightBoxIsClosed(t *testing.T) {
 	t.Parallel()
-	data := []struct {
-		input   []string
-		strings []string
-		texts   []string
-		corners [][]Point
-	}{
-		// 0 URL
-		{
-			[]string{
-				"github.com/foo/bar",
-			},
-			[]string{"Text{(0,0) \"github.com/foo/bar\"}"},
-			[]string{"github.com/foo/bar"},
-			[][]Point{{{X: 0, Y: 0}, {X: 17, Y: 0}}},
-		},
-
-		// 1 Merged boxes
-		{
-			[]string{
-				"+-+-+",
-				"| | |",
-				"+-+-+",
-			},
-			[]string{"Path{[(0,0) (1,0) (2,0) (3,0) (4,0) (4,1) (4,2) (3,2) (2,2) (1,2) (0,2) (0,1)]}", "Path{[(0,0) (1,0) (2,0) (3,0) (4,0) (4,1) (4,2) (3,2) (2,2) (2,1)]}"},
-			[]string{"", ""},
-			// TODO(dhobsd): BROKEN.
-			[][]Point{
-				{{X: 0, Y: 0}, {X: 4, Y: 0}, {X: 4, Y: 2}, {X: 0, Y: 2}},
-				{{X: 0, Y: 0}, {X: 4, Y: 0}, {X: 4, Y: 2}, {X: 2, Y: 2}, {X: 2, Y: 1}},
-			},
-		},
-
-		// 2 Adjacent boxes
-		{
-			// TODO(dhobsd): BROKEN. This one is hard, as it can be seen as 3 boxes
-			// but that is not what is desired.
-			[]string{
-				"+-++-+",
-				"| || |",
-				"+-++-+",
-			},
-			[]string{
-				"Path{[(0,0) (1,0) (2,0) (3,0) (4,0) (5,0) (5,1) (5,2) (4,2) (3,2) (2,2) (1,2) (0,2) (0,1)]}",
-				"Path{[(0,0) (1,0) (2,0) (3,0) (4,0) (5,0) (5,1) (5,2) (4,2) (3,2) (2,2) (2,1)]}",
-				"Path{[(0,0) (1,0) (2,0) (3,0) (4,0) (5,0) (5,1) (5,2) (4,2) (3,2) (3,1)]}",
-			},
-			[]string{"", "", ""},
-			[][]Point{
-				{{X: 0, Y: 0}, {X: 5, Y: 0}, {X: 5, Y: 2}, {X: 0, Y: 2}},
-				{{X: 0, Y: 0}, {X: 5, Y: 0}, {X: 5, Y: 2}, {X: 2, Y: 2}, {X: 2, Y: 1}},
-				{{X: 0, Y: 0}, {X: 5, Y: 0}, {X: 5, Y: 2}, {X: 3, Y: 2}, {X: 3, Y: 1}},
-			},
-		},
+	c, err := NewCanvas([]byte("++\n++"), 8, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	for i, line := range data {
-		c, err := NewCanvas([]byte(strings.Join(line.input, "\n")), 9, true)
-		if err != nil {
-			t.Fatalf("Test %d: error creating canvas: %s", i, err)
+	objs := c.Objects()
+	if len(objs) != 1 || !objs[0].IsClosed() {
+		t.Fatalf("expected 1 closed box, got %+v", objs)
+	}
+}
+
+func TestGrid2x2AndSplitBoxes(t *testing.T) {
+	t.Parallel()
+	input := strings.Join([]string{
+		"+---+---+",
+		"| A | B |",
+		"+---+   |",
+		"| C |   |",
+		"+---+---+",
+	}, "\n")
+	c, err := NewCanvas([]byte(input), 8, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var closedCount int
+	for _, o := range c.Objects() {
+		if !o.IsText() {
+			if !o.IsClosed() {
+				t.Fatalf("expected closed path, got open %v", o)
+			}
+			closedCount++
 		}
-		objs := c.Objects()
-		if line.strings != nil {
-			assertEqualIndex(t, i, line.strings, getStrings(objs))
-		}
-		if line.texts != nil {
-			assertEqualIndex(t, i, line.texts, getTexts(objs))
-		}
-		if line.corners != nil {
-			assertEqualIndex(t, i, line.corners, getCorners(objs))
-		}
+	}
+	if closedCount != 3 {
+		t.Fatalf("expected 3 closed boxes, got %d", closedCount)
 	}
 }
 
@@ -587,16 +720,13 @@ func TestEnclosingObjectsAndDiagonalHasPoint(t *testing.T) {
 		t.Fatalf("unexpected enclosing order: inner=%v outer=%v", enc[0].Corners(), enc[1].Corners())
 	}
 
-	// Test diagonal polygon HasPoint using non-axis-aligned edges.
-	diagObj := &object{
-		corners:  []Point{{X: 2, Y: 6}, {X: 4, Y: 8}, {X: 2, Y: 10}, {X: 0, Y: 8}},
-		isClosed: true,
+	// Test diagonal polygon HasPoint (diamond centered at (2,8)).
+	encDiamond := c.EnclosingObjects(Point{X: 2, Y: 8})
+	if len(encDiamond) != 1 || encDiamond[0].Corners()[0] != (Point{X: 2, Y: 6}) {
+		t.Fatalf("expected diamond enclosing (2,8), got %v", encDiamond)
 	}
-	if !diagObj.HasPoint(Point{X: 2, Y: 8}) {
-		t.Fatal("expected diamond to contain (2,8)")
-	}
-	if diagObj.HasPoint(Point{X: 0, Y: 7}) {
-		t.Fatal("expected (0,7) outside diamond")
+	if encOutside := c.EnclosingObjects(Point{X: 0, Y: 7}); len(encOutside) != 0 {
+		t.Fatalf("expected (0,7) outside diamond, got %v", encOutside)
 	}
 }
 
@@ -614,6 +744,174 @@ func TestTagParsingSafety(t *testing.T) {
 	// Malformed JSON object tag definition should return an error cleanly.
 	if _, err := NewCanvas([]byte("[a]: {invalid"), 8, true); err == nil {
 		t.Fatal("expected error for malformed JSON tag definition")
+	}
+}
+
+func TestOctothorpeCorners(t *testing.T) {
+	t.Parallel()
+	// Adjacent # boxes stay separate.
+	c, err := NewCanvas([]byte("#--##--#\n|  ||  |\n#--##--#"), 8, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(c.Objects()) != 2 || !c.Objects()[0].IsClosed() || !c.Objects()[1].IsClosed() {
+		t.Fatalf("expected 2 closed # boxes, got %+v", c.Objects())
+	}
+
+	// Inline prose containing #- or -# stays text rather than turning into a path.
+	c2, err := NewCanvas([]byte("C#-code issue-#1"), 8, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(c2.Objects()) != 1 || !c2.Objects()[0].IsText() || string(c2.Objects()[0].Text()) != "C#-code issue-#1" {
+		t.Fatalf("expected inline # prose to remain text, got %+v", c2.Objects())
+	}
+}
+
+func TestAdjacentLineAnchors(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name    string
+		input   []string
+		strings []string
+		closed  []bool
+	}{
+		{
+			name: "horizontal line with two vertical anchors below",
+			input: []string{
+				"----++----",
+				"    ||",
+			},
+			strings: []string{
+				"Path{[(0,0) (1,0) (2,0) (3,0) (4,0) (5,0) (6,0) (7,0) (8,0) (9,0)]}",
+				"Path{[(4,0) (4,1)]}",
+				"Path{[(5,0) (5,1)]}",
+			},
+			closed: []bool{false, false, false},
+		},
+		{
+			name: "horizontal line with stepped vertical anchors",
+			input: []string{
+				"    |",
+				"----++----",
+				"     |",
+			},
+			strings: []string{
+				"Path{[(4,0) (4,1)]}",
+				"Path{[(0,1) (1,1) (2,1) (3,1) (4,1) (5,1) (6,1) (7,1) (8,1) (9,1)]}",
+				"Path{[(5,1) (5,2)]}",
+			},
+			closed: []bool{false, false, false},
+		},
+		{
+			name: "vertical shaft with two adjacent horizontal anchors",
+			input: []string{
+				"|",
+				"+---",
+				"+---",
+				"|",
+			},
+			strings: []string{
+				"Path{[(0,0) (0,1) (0,2) (0,3)]}",
+				"Path{[(0,1) (1,1) (2,1) (3,1)]}",
+				"Path{[(0,2) (1,2) (2,2) (3,2)]}",
+			},
+			closed: []bool{false, false, false},
+		},
+		{
+			name: "box wall with two adjacent horizontal lines anchored",
+			input: []string{
+				"+--+",
+				"|  +----",
+				"|  +----",
+				"+--+",
+			},
+			strings: []string{
+				"Path{[(0,0) (1,0) (2,0) (3,0) (3,1) (3,2) (3,3) (2,3) (1,3) (0,3) (0,2) (0,1)]}",
+				"Path{[(3,1) (4,1) (5,1) (6,1) (7,1)]}",
+				"Path{[(3,2) (4,2) (5,2) (6,2) (7,2)]}",
+			},
+			closed: []bool{true, false, false},
+		},
+		{
+			name: "double bridge between two boxes keeps bridges open and boxes closed",
+			input: []string{
+				"+--+  +--+",
+				"|  +--+  |",
+				"|  +--+  |",
+				"+--+  +--+",
+			},
+			strings: []string{
+				"Path{[(0,0) (1,0) (2,0) (3,0) (3,1) (3,2) (3,3) (2,3) (1,3) (0,3) (0,2) (0,1)]}",
+				"Path{[(6,0) (7,0) (8,0) (9,0) (9,1) (9,2) (9,3) (8,3) (7,3) (6,3) (6,2) (6,1)]}",
+				"Path{[(3,1) (4,1) (5,1) (6,1)]}",
+				"Path{[(3,2) (4,2) (5,2) (6,2)]}",
+			},
+			closed: []bool{true, true, false, false},
+		},
+		{
+			name: "spaced double bridge between two boxes keeps bridges open",
+			input: []string{
+				"+--+  +--+",
+				"|  +--+  |",
+				"|  |  |  |",
+				"|  +--+  |",
+				"+--+  +--+",
+			},
+			strings: []string{
+				"Path{[(0,0) (1,0) (2,0) (3,0) (3,1) (3,2) (3,3) (3,4) (2,4) (1,4) (0,4) (0,3) (0,2) (0,1)]}",
+				"Path{[(6,0) (7,0) (8,0) (9,0) (9,1) (9,2) (9,3) (9,4) (8,4) (7,4) (6,4) (6,3) (6,2) (6,1)]}",
+				"Path{[(3,1) (4,1) (5,1) (6,1)]}",
+				"Path{[(3,3) (4,3) (5,3) (6,3)]}",
+			},
+			closed: []bool{true, true, false, false},
+		},
+		{
+			name: "three merged compartments in a row remain closed",
+			input: []string{
+				"+--+--+--+",
+				"|  |  |  |",
+				"+--+--+--+",
+			},
+			strings: []string{
+				"Path{[(0,0) (1,0) (2,0) (3,0) (3,1) (3,2) (2,2) (1,2) (0,2) (0,1)]}",
+				"Path{[(3,0) (4,0) (5,0) (6,0) (6,1) (6,2) (5,2) (4,2) (3,2) (3,1)]}",
+				"Path{[(6,0) (7,0) (8,0) (9,0) (9,1) (9,2) (8,2) (7,2) (6,2) (6,1)]}",
+			},
+			closed: []bool{true, true, true},
+		},
+		{
+			name: "staggered touching boxes remain separate",
+			input: []string{
+				"+--+",
+				"|  |+--+",
+				"|  ||  |",
+				"+--++--+",
+			},
+			strings: []string{
+				"Path{[(0,0) (1,0) (2,0) (3,0) (3,1) (3,2) (3,3) (2,3) (1,3) (0,3) (0,2) (0,1)]}",
+				"Path{[(4,1) (5,1) (6,1) (7,1) (7,2) (7,3) (6,3) (5,3) (4,3) (4,2)]}",
+			},
+			closed: []bool{true, true},
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			c, err := NewCanvas([]byte(strings.Join(tc.input, "\n")), 8, true)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			objs := c.Objects()
+			assertEqualIndex(t, 0, tc.strings, getStrings(objs))
+			gotClosed := make([]bool, len(objs))
+			for i, o := range objs {
+				gotClosed[i] = o.IsClosed()
+			}
+			assertEqualIndex(t, 0, tc.closed, gotClosed)
+		})
 	}
 }
 
@@ -650,8 +948,7 @@ func TestPointsToCorners(t *testing.T) {
 		{
 			[]Point{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}, {X: 0, Y: 1}},
 			[]Point{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}, {X: 0, Y: 1}},
-			// TODO(dhobsd): Unexpected; broken.
-			false,
+			true,
 		},
 	}
 	for i, line := range data {
@@ -691,7 +988,7 @@ func BenchmarkT(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		input = append(input, chunk...)
 	}
-	expected := 30 * b.N
+	expected := 32 * b.N
 	b.ResetTimer()
 	c, err := NewCanvas(input, 8, true)
 	if err != nil {

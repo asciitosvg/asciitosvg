@@ -194,31 +194,15 @@ func (c *canvas) EnclosingObjects(p Point) []Object {
 func (c *canvas) findObjects() error {
 	p := Point{}
 
-	// Find any new paths by starting with a point that wasn't yet visited, beginning at the top
-	// left of the grid.
-	for y := 0; y < c.size.Y; y++ {
-		p.Y = y
-		for x := 0; x < c.size.X; x++ {
-			p.X = x
-			if c.isVisited(p) {
-				continue
-			}
-			if ch := c.at(p); ch.isPathStart() {
-				// Found the start of a one or multiple connected paths. Traverse all
-				// connecting points. This will generate multiple objects if multiple
-				// paths (either open or closed) are found.
-				c.visit(p)
-				objs := c.scanPath([]Point{p})
-				for _, obj := range objs {
-					// For all points in all objects found, mark the points as visited.
-					for _, p := range obj.Points() {
-						c.visit(p)
-					}
-				}
-				c.objects = append(c.objects, objs...)
-			}
+	// First pass: build the diagram connectivity graph and extract closed polygons and open paths.
+	g := newGridGraph(c)
+	objs := g.extractObjects()
+	for _, obj := range objs {
+		for _, pt := range obj.Points() {
+			c.visit(pt)
 		}
 	}
+	c.objects = append(c.objects, objs...)
 
 	// Second pass: identify any text and tag definitions within the unvisited grid cells.
 	var coordTags []string
@@ -271,140 +255,6 @@ func (c *canvas) findObjects() error {
 
 	sort.Sort(c.objects)
 	return nil
-}
-
-// scanPath tries to complete a total path (for lines or polygons) starting with some partial path.
-// It recurses when it finds multiple unvisited outgoing paths.
-func (c *canvas) scanPath(points []Point) objects {
-	cur := points[len(points)-1]
-	next := c.next(cur)
-
-	// If there are no points that can progress traversal of the path, finalize the one we're
-	// working on, and return it. This is the terminal condition in the passive flow.
-	if len(next) == 0 {
-		if len(points) == 1 {
-			// Discard 'path' of 1 point. Do not mark point as visited.
-			c.unvisit(cur)
-			return nil
-		}
-
-		// TODO(dhobsd): Determine if path is sharing the line with another path. If so,
-		// we may want to join the objects such that we don't get weird rendering artifacts.
-		o := &object{points: points}
-		o.seal(c)
-		return objects{o}
-	}
-
-	// If we have hit a point that can create a closed path, create an object and close
-	// the path. Additionally, recurse to other progress directions in case e.g. an open
-	// path spawns from this point. Paths are always closed vertically.
-	if cur.X == points[0].X && cur.Y == points[0].Y+1 {
-		o := &object{points: points}
-		o.seal(c)
-		r := objects{o}
-		return append(r, c.scanPath([]Point{cur})...)
-	}
-
-	// We scan depth-first instead of breadth-first, making it possible to find a
-	// closed path.
-	var objs objects
-	for _, n := range next {
-		if c.isVisited(n) {
-			continue
-		}
-		c.visit(n)
-		p2 := make([]Point, len(points)+1)
-		copy(p2, points)
-		p2[len(p2)-1] = n
-		objs = append(objs, c.scanPath(p2)...)
-	}
-	return objs
-}
-
-// The next returns the points that can be used to make progress, scanning (in order) horizontal
-// progress to the left or right, vertical progress above or below, or diagonal progress to NW,
-// NE, SW, and SE. It skips any points already visited, and returns all of the possible progress
-// points.
-func (c *canvas) next(pos Point) []Point {
-	// Our caller must have called c.visit prior to calling this function.
-	if !c.isVisited(pos) {
-		panic(fmt.Errorf("internal error; revisiting %s", pos))
-	}
-
-	var out []Point
-
-	ch := c.at(pos)
-	if ch.canHorizontal() {
-		nextHorizontal := func(p Point) {
-			if !c.isVisited(p) && c.at(p).canHorizontal() {
-				out = append(out, p)
-			}
-		}
-		if c.canLeft(pos) {
-			n := pos
-			n.X--
-			nextHorizontal(n)
-		}
-		if c.canRight(pos) {
-			n := pos
-			n.X++
-			nextHorizontal(n)
-		}
-	}
-	if ch.canVertical() {
-		nextVertical := func(p Point) {
-			if !c.isVisited(p) && c.at(p).canVertical() {
-				out = append(out, p)
-			}
-		}
-		if c.canUp(pos) {
-			n := pos
-			n.Y--
-			nextVertical(n)
-		}
-		if c.canDown(pos) {
-			n := pos
-			n.Y++
-			nextVertical(n)
-		}
-	}
-	if c.canDiagonal(pos) {
-		nextDiagonal := func(from, to Point) {
-			if !c.isVisited(to) && c.at(to).canDiagonalFrom(c.at(from)) {
-				out = append(out, to)
-			}
-		}
-		if c.canUp(pos) {
-			if c.canLeft(pos) {
-				n := pos
-				n.X--
-				n.Y--
-				nextDiagonal(pos, n)
-			}
-			if c.canRight(pos) {
-				n := pos
-				n.X++
-				n.Y--
-				nextDiagonal(pos, n)
-			}
-		}
-		if c.canDown(pos) {
-			if c.canLeft(pos) {
-				n := pos
-				n.X--
-				n.Y++
-				nextDiagonal(pos, n)
-			}
-			if c.canRight(pos) {
-				n := pos
-				n.X++
-				n.Y++
-				nextDiagonal(pos, n)
-			}
-		}
-	}
-
-	return out
 }
 
 // Used for matching [X, Y]: {...} tag definitions. These definitions target specific objects.
@@ -515,35 +365,9 @@ func (c *canvas) isVisited(p Point) bool {
 }
 
 func (c *canvas) visit(p Point) {
-	// TODO(dhobsd): Change code to ensure that visit() is called once and only
-	// once per point.
 	c.visited[p.Y*c.size.X+p.X] = true
-}
-
-func (c *canvas) unvisit(p Point) {
-	o := p.Y*c.size.X + p.X
-	if !c.visited[o] {
-		panic(fmt.Errorf("internal error: point %+v never visited", p))
-	}
-	c.visited[o] = false
-}
-
-func (c *canvas) canLeft(p Point) bool {
-	return p.X > 0
 }
 
 func (c *canvas) canRight(p Point) bool {
 	return p.X < c.size.X-1
-}
-
-func (c *canvas) canUp(p Point) bool {
-	return p.Y > 0
-}
-
-func (c *canvas) canDown(p Point) bool {
-	return p.Y < c.size.Y-1
-}
-
-func (c *canvas) canDiagonal(p Point) bool {
-	return (c.canLeft(p) || c.canRight(p)) && (c.canUp(p) || c.canDown(p))
 }
