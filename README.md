@@ -103,8 +103,11 @@ To install the CLI tool, make sure `$GOBIN` (or `$(go env GOPATH)/bin`) is in yo
             Path to input text file. If set to "-" (hyphen), stdin is used. (default "-")
       -o string
             Path to output SVG file. If set to "-" (hyphen), stdout is used. (default "-")
+      -s value
+            X and Y grid scale in pixels formatted as "X,Y" (shorthand for -x and -y).
       -t int
             Tab width. (default 8)
+      -v	Print version information and exit.
       -x int
             X grid scale in pixels. (default 9)
       -y int
