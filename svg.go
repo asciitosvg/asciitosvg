@@ -8,32 +8,34 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"math"
+	"sort"
 	"strings"
-	// TODO(dhobsd): Investigate using SVGo?
 )
 
 const (
-	defaultFont = "Consolas,Monaco,Anonymous Pro,Anonymous,Bitstream Sans Mono,monospace"
+	defaultFont = "Consolas,Monaco,Anonymous Pro,Anonymous,Bitstream Vera Sans Mono,Liberation Mono,DejaVu Sans Mono,monospace"
 	header      = "<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\" \"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd\">\n"
 	watermark   = "<!-- Created with ASCIItoSVG -->\n"
 	svgTag      = "<svg width=\"%dpx\" height=\"%dpx\" version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">\n"
 
 	// Path related tag.
-	pathTag       = "    %s<path id=\"%s%d\" %sd=\"%s\" />%s\n"
-	pathMarkStart = "marker-start=\"url(#iPointer)\" "
-	pathMarkEnd   = "marker-end=\"url(#Pointer)\" "
+	pathTag              = "    %s<path id=\"%s%d\" %sd=\"%s\" />%s\n"
+	pathMarkStart        = "marker-start=\"url(#iPointer)\" "
+	pathMarkStartForward = "marker-start=\"url(#Pointer)\" "
+	pathMarkEnd          = "marker-end=\"url(#Pointer)\" "
+	pathMarkEndReverse   = "marker-end=\"url(#iPointer)\" "
 
 	// Text related tag.
-	textGroupTag = "  <g id=\"text\" stroke=\"none\" style=\"font-family:%s;font-size:15.2px\" >\n"
+	textGroupTag = "  <g id=\"text\" xml:space=\"preserve\" stroke=\"none\" style=\"font-family:%s;font-size:%gpx\" >\n"
 	textTag      = "    %s<text id=\"obj%d\" x=\"%g\" y=\"%g\" fill=\"%s\">%s</text>%s\n"
 
 	// Point effect tags.
 	dotTag  = "    <circle cx=\"%g\" cy=\"%g\" r=\"3\" fill=\"#000\" />\n"
 	tickTag = "    <line x1=\"%g\" y1=\"%g\" x2=\"%g\" y2=\"%g\" stroke-width=\"1\" />\n"
 
-	// TODO(dhobsd): Fine tune.
 	blurDef = `  <defs>
-    <filter id="dsFilter" width="150%%" height="150%%">
+    <filter id="dsFilter" filterUnits="userSpaceOnUse" x="0" y="0" width="100%%" height="100%%">
       <feOffset result="offOut" in="SourceGraphic" dx="2" dy="2"/>
       <feColorMatrix result="matrixOut" in="offOut" type="matrix" values="0.2 0 0 0 0 0 0.2 0 0 0 0 0 0.2 0 0 0 0 0 1 0"/>
       <feGaussianBlur result="blurOut" in="matrixOut" stdDeviation="3"/>
@@ -63,44 +65,96 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 		font = defaultFont
 	}
 
+	options := c.Options()
+
+	// Exclude deleted tag definition lines from inflating SVG canvas dimensions.
+	sizeX, sizeY := c.Size().X, c.Size().Y
+	hasDeletedDef := false
+	visMaxX, visMaxY := -1, -1
+	for _, obj := range c.Objects() {
+		if oo, ok := obj.(*object); ok && oo.isTagDef {
+			if tag := obj.Tag(); tag != "" {
+				if _, del := options[tag]["a2s:delref"]; del {
+					hasDeletedDef = true
+					continue
+				}
+			}
+		}
+		for _, pt := range obj.Points() {
+			if pt.X > visMaxX {
+				visMaxX = pt.X
+			}
+			if pt.Y > visMaxY {
+				visMaxY = pt.Y
+			}
+		}
+	}
+	if hasDeletedDef && visMaxX >= 0 && visMaxY >= 0 {
+		if visMaxX+1 < sizeX {
+			sizeX = visMaxX + 1
+		}
+		if visMaxY+1 < sizeY {
+			sizeY = visMaxY + 1
+		}
+	}
+
 	// TODO(dhobsd): Generating the XML manually is a tad fishy but encoding/xml
 	// enforces standard XML header and the end code would be significantly
 	// larger. The down side is potential escaping errors.
 	b := &bytes.Buffer{}
 	io.WriteString(b, header)
 	io.WriteString(b, watermark)
-	fmt.Fprintf(b, svgTag, (c.Size().X+1)*scaleX, (c.Size().Y+1)*scaleY)
+	fmt.Fprintf(b, svgTag, (sizeX+1)*scaleX, (sizeY+1)*scaleY)
 	x := float64(scaleX - 1)
 	y := float64(scaleY - 1)
 	fmt.Fprintf(b, blurDef, x, y, x, y)
 
-	options := c.Options()
-	getOpts := func(tag string) string {
-		opts := ""
-		if options, ok := options[tag]; ok {
-			for k, v := range options {
+	getOpts := func(tag string, defaultFill string) string {
+		var sb strings.Builder
+		hasFill := false
+		if tagOpts, ok := options[tag]; ok {
+			keys := make([]string, 0, len(tagOpts))
+			for k := range tagOpts {
 				if strings.HasPrefix(k, "a2s:") {
 					continue
 				}
-
-				switch v.(type) {
-				case string:
-					opts += fmt.Sprintf("%s=\"%s\" ", k, v.(string))
-				default:
-					// TODO(dhobsd): Implement.
-					opts += fmt.Sprintf("%s=\"UNIMPLEMENTED\" ", k)
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				if k == "fill" {
+					hasFill = true
 				}
+				fmt.Fprintf(&sb, "%s=\"%s\" ", escape(k), escape(fmt.Sprint(tagOpts[k])))
 			}
 		}
-
-		return opts
+		if defaultFill != "" && !hasFill {
+			fmt.Fprintf(&sb, "fill=\"%s\" ", escape(defaultFill))
+		}
+		return sb.String()
 	}
 
-	// 3 passes, first closed paths, then open paths, then text.
+	linkTags := func(tag string) (string, string) {
+		if tag == "" {
+			return "", ""
+		}
+		if link, ok := options[tag]["a2s:link"]; ok {
+			if linkStr, ok := link.(string); ok && linkStr != "" {
+				return fmt.Sprintf("<a xlink:href=\"%s\">", escape(linkStr)), "</a>"
+			}
+		}
+		return "", ""
+	}
+
+	// 3 passes: first closed paths, then open paths, then text.
 	if noBlur {
 		io.WriteString(b, "  <g id=\"closed\" stroke=\"#000\" stroke-width=\"2\" fill=\"none\">\n")
 	} else {
 		io.WriteString(b, "  <g id=\"closed\" filter=\"url(#dsFilter)\" stroke=\"#000\" stroke-width=\"2\" fill=\"none\">\n")
+	}
+	defaultClosedFill := "#fff"
+	if f, ok := options["__a2s__closed__options__"]["fill"].(string); ok && f != "" {
+		defaultClosedFill = f
 	}
 	for i, obj := range c.Objects() {
 		if obj.IsClosed() && !obj.IsText() {
@@ -110,18 +164,14 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 			}
 
 			tag := obj.Tag()
-			if tag == "" {
-				tag = "__a2s__closed__options__"
+			lookupTag := tag
+			if lookupTag == "" {
+				lookupTag = "__a2s__closed__options__"
 			}
-			opts += getOpts(tag)
+			opts += getOpts(lookupTag, defaultClosedFill)
 
-			startLink, endLink := "", ""
-			if link, ok := options[tag]["a2s:link"]; ok {
-				startLink = link.(string)
-				endLink = "</a>"
-			}
-
-			fmt.Fprintf(b, pathTag, startLink, "closed", i, opts, flatten(obj.Points(), scaleX, scaleY)+"Z", endLink)
+			startLink, endLink := linkTags(tag)
+			fmt.Fprintf(b, pathTag, startLink, "closed", i, opts, flatten(obj.Points(), true, scaleX, scaleY)+"Z", endLink)
 		}
 	}
 	io.WriteString(b, "  </g>\n")
@@ -135,12 +185,24 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 			if obj.IsDashed() {
 				opts += "stroke-dasharray=\"5 5\" "
 			}
-			if points[0].Hint == StartMarker {
+			switch points[0].Hint {
+			case StartMarker:
 				opts += pathMarkStart
+			case StartMarkerForward:
+				opts += pathMarkStartForward
 			}
-			if points[len(points)-1].Hint == EndMarker {
+			switch points[len(points)-1].Hint {
+			case EndMarker:
 				opts += pathMarkEnd
+			case EndMarkerReverse:
+				opts += pathMarkEndReverse
 			}
+
+			tag := obj.Tag()
+			opts += getOpts(tag, "")
+
+			startLink, endLink := linkTags(tag)
+			fmt.Fprintf(b, pathTag, startLink, "open", i, opts, flatten(points, false, scaleX, scaleY), endLink)
 
 			for _, p := range points {
 				switch p.Hint {
@@ -148,98 +210,97 @@ func CanvasToSVG(c Canvas, noBlur bool, font string, scaleX, scaleY int) []byte 
 					sp := scale(p, scaleX, scaleY)
 					fmt.Fprintf(b, dotTag, sp.X, sp.Y)
 				case Tick:
-					p := scale(p, scaleX, scaleY)
-					p1, p2 := p, p
-					p1.X -= 4
-					p1.Y -= 4
-					p2.X += 4
-					p2.Y += 4
-					fmt.Fprintf(b, tickTag, p1.X, p1.Y, p2.X, p2.Y)
-
-					p1, p2 = p, p
-					p1.X += 4
-					p1.Y -= 4
-					p2.X -= 4
-					p2.Y += 4
-					fmt.Fprintf(b, tickTag, p1.X, p1.Y, p2.X, p2.Y)
+					sp := scale(p, scaleX, scaleY)
+					fmt.Fprintf(b, tickTag, sp.X-4, sp.Y-4, sp.X+4, sp.Y+4)
+					fmt.Fprintf(b, tickTag, sp.X+4, sp.Y-4, sp.X-4, sp.Y+4)
 				}
 			}
-
-			tag := obj.Tag()
-			opts += getOpts(tag)
-
-			startLink, endLink := "", ""
-			if link, ok := options[tag]["a2s:link"]; ok {
-				startLink = link.(string)
-				endLink = "</a>"
-			}
-			fmt.Fprintf(b, pathTag, startLink, "open", i, opts, flatten(points, scaleX, scaleY), endLink)
 		}
 	}
 	io.WriteString(b, "  </g>\n")
 
-	fmt.Fprintf(b, textGroupTag, escape(string(font)))
+	fontSize := roundCoord(math.Min(float64(scaleX)/0.6, 0.9375*float64(scaleY)))
+	fmt.Fprintf(b, textGroupTag, escape(font), fontSize)
 
-	findTextColor := func(o Object) (string, error) {
-		// If the tag on the text object is a special reference, that's the color we should use
-		// for the text.
+	findTextColor := func(o Object) string {
+		// If the tag on the text object is a special coordinate reference, use its fill directly.
 		if tag := o.Tag(); objTagRE.MatchString(tag) {
 			if fill, ok := options[tag]["fill"]; ok {
-				return fill.(string), nil
+				if fillStr, ok := fill.(string); ok && fillStr != "" {
+					return fillStr
+				}
 			}
 		}
 
-		// Otherwise, find the most specific fill and calibrate the color based on that.
-		if containers := c.EnclosingObjects(o.Points()[0]); containers != nil {
+		// Otherwise, find the most specific enclosing container with a non-"none" fill
+		// and choose a contrasting text color.
+		if containers := c.EnclosingObjects(o.Points()[0]); len(containers) > 0 {
 			for _, container := range containers {
+				fillStr := defaultClosedFill
 				if tag := container.Tag(); tag != "" {
 					if fill, ok := options[tag]["fill"]; ok {
-						if fill == "none" {
+						s, ok := fill.(string)
+						if !ok || s == "" {
 							continue
 						}
-
-						return textColor(fill.(string))
+						if s == "none" {
+							continue
+						}
+						fillStr = s
 					}
+				}
+				if col, err := textColor(fillStr); err == nil {
+					return col
 				}
 			}
 		}
 
 		// Default to black.
-		return "#000", nil
+		return "#000"
 	}
 
 	for i, obj := range c.Objects() {
 		if obj.IsText() {
-			// Look up the fill of the containing box to determine what text color to use.
-			color, err := findTextColor(obj)
-			if err != nil {
-				fmt.Printf("Error figuring out text color: %s\n", err)
+			text := string(obj.Text())
+			tag := obj.Tag()
+			isTagDef := false
+			if oo, ok := obj.(*object); ok {
+				isTagDef = oo.isTagDef
 			}
 
 			startLink, endLink := "", ""
-			text := string(obj.Text())
-			tag := obj.Tag()
 			if tag != "" {
-				if label, ok := options[tag]["a2s:label"]; ok {
-					text = label.(string)
-				}
-
-				// If we're a reference, the a2s:delref tag informs us to remove our reference.
-				// TODO(dhobsd): If text is on column 0 but is not a special reference,
-				// we can't really detect that here.
-				if obj.Corners()[0].X == 0 {
+				if isTagDef {
 					if _, ok := options[tag]["a2s:delref"]; ok {
 						continue
 					}
-				}
-
-				if link, ok := options[tag]["a2s:link"]; ok {
-					startLink = link.(string)
-					endLink = "</a>"
+				} else {
+					if label, ok := options[tag]["a2s:label"]; ok {
+						labelStr := fmt.Sprint(label)
+						refPrefix := "[" + tag + "]"
+						if strings.HasPrefix(text, refPrefix) {
+							text = labelStr + strings.TrimPrefix(text, refPrefix)
+						} else {
+							text = labelStr
+						}
+					} else if _, ok := options[tag]["a2s:delref"]; ok {
+						refPrefix := "[" + tag + "]"
+						if strings.HasPrefix(text, refPrefix) {
+							text = strings.TrimLeft(strings.TrimPrefix(text, refPrefix), " ")
+						}
+					}
+					if text == "" {
+						continue
+					}
+					startLink, endLink = linkTags(tag)
 				}
 			}
-			sp := scale(obj.Points()[0], scaleX, scaleY)
-			fmt.Fprintf(b, textTag, startLink, i, sp.X, sp.Y, color, escape(text), endLink)
+
+			color := findTextColor(obj)
+			pt := obj.Points()[0]
+			tx := roundCoord(float64(pt.X) * float64(scaleX))
+			ty := roundCoord((float64(pt.Y) + 0.8125) * float64(scaleY))
+			fmt.Fprintf(b, textTag, startLink, i, tx, ty, color, escape(text), endLink)
 		}
 	}
 	io.WriteString(b, "  </g>\n")
@@ -270,90 +331,112 @@ func scale(p Point, scaleX, scaleY int) scaledPoint {
 	}
 }
 
-func flatten(points []Point, scaleX, scaleY int) string {
-	out := ""
+func roundCoord(v float64) float64 {
+	r := math.Round(v*1000) / 1000
+	if r == 0 {
+		return 0
+	}
+	return r
+}
 
-	// Scaled start point, and previous point (which is always initially the start point).
-	sp := scale(points[0], scaleX, scaleY)
-	pp := sp
+func flattenVertices(points []Point, closed bool) []Point {
+	l := len(points)
+	if l < 3 {
+		return points
+	}
+	out := []Point{points[0]}
+	dir := stepDir(points[0], points[1])
+	for i := 2; i < l; i++ {
+		newDir := stepDir(points[i-1], points[i])
+		h := points[i-1].Hint
+		if dir != newDir || h == RoundedCuspDown || h == RoundedCuspUp {
+			out = append(out, points[i-1])
+			dir = newDir
+		}
+	}
+	last := points[l-1]
+	if !closed {
+		out = append(out, last)
+		return out
+	}
+	closingDir := stepDir(last, points[0])
+	if closingDir == dirNone || dir != closingDir || last.Hint == RoundedCuspDown || last.Hint == RoundedCuspUp {
+		out = append(out, last)
+	}
+	return out
+}
 
-	for i, cp := range points {
-		p := scale(cp, scaleX, scaleY)
+func flatten(points []Point, closed bool, scaleX, scaleY int) string {
+	verts := flattenVertices(points, closed)
+	n := len(verts)
+	if n == 0 {
+		return ""
+	}
+	if n == 1 {
+		p := scale(verts[0], scaleX, scaleY)
+		return fmt.Sprintf("M %g %g ", roundCoord(p.X), roundCoord(p.Y))
+	}
 
-		// Our start point is represented by a single moveto command (unless the start point
-		// is a rounded corner) as the shape will be closed with the Z command automatically
-		// if we have a closed polygon. If our start point is a rounded corner, we have to go
-		// ahead and draw that curve.
+	rTarget := 10.0 * math.Min(float64(scaleX)/9.0, float64(scaleY)/16.0)
+	if rTarget < 0 {
+		rTarget = 0
+	}
+	rCusp := math.Min(rTarget, 0.5*float64(scaleY))
+
+	var sb strings.Builder
+	for i, cp := range verts {
+		cmd := "L"
 		if i == 0 {
-			if cp.Hint == RoundedCorner {
-				out += fmt.Sprintf("M %g %g Q %g %g %g %g ", p.X, p.Y+10, p.X, p.Y, p.X+10, p.Y)
-				continue
-			}
-
-			out += fmt.Sprintf("M %g %g ", p.X, p.Y)
+			cmd = "M"
+		}
+		p := scale(cp, scaleX, scaleY)
+		interior := closed || (i > 0 && i < n-1)
+		isCusp := (cp.Hint == RoundedCuspDown || cp.Hint == RoundedCuspUp) && interior
+		isRound := cp.Hint == RoundedCorner && interior
+		if !isRound && !isCusp {
+			fmt.Fprintf(&sb, "%s %g %g ", cmd, roundCoord(p.X), roundCoord(p.Y))
 			continue
 		}
 
-		// If this point has a rounded corner, we need to calculate the curve. This algorithm
-		// only works when the shapes are drawn in a clockwise manner.
-		if cp.Hint == RoundedCorner {
-			// The control point is always the original corner.
-			cx := p.X
-			cy := p.Y
-
-			sx, sy, ex, ey := 0., 0., 0., 0.
-
-			// We need to know the next point to determine which way to turn.
-			var np scaledPoint
-			if i == len(points)-1 {
-				np = sp
-			} else {
-				np = scale(points[i+1], scaleX, scaleY)
-			}
-
-			if pp.X == p.X {
-				// If we're on the same vertical axis, our starting X coordinate is
-				// the same as the control point coordinate
-				sx = p.X
-
-				// Offset start point from control point in the proper direction.
-				if pp.Y < p.Y {
-					sy = p.Y - 10
-				} else {
-					sy = p.Y + 10
-				}
-
-				ey = p.Y
-				// Offset endpoint from control point in the proper direction.
-				if np.X < p.X {
-					ex = p.X - 10
-				} else {
-					ex = p.X + 10
-				}
-			} else if pp.Y == p.Y {
-				// Horizontal decisions mirror vertical's above.
-				sy = p.Y
-				if pp.X < p.X {
-					sx = p.X - 10
-				} else {
-					sx = p.X + 10
-				}
-				ex = p.X
-				if np.Y <= p.Y {
-					ey = p.Y - 10
-				} else {
-					ey = p.Y + 10
-				}
-			}
-
-			out += fmt.Sprintf("L %g %g Q %g %g %g %g ", sx, sy, cx, cy, ex, ey)
-		} else {
-			// Oh, the horrors of drawing a straight line...
-			out += fmt.Sprintf("L %g %g ", p.X, p.Y)
+		pp := scale(verts[(i-1+n)%n], scaleX, scaleY)
+		np := scale(verts[(i+1)%n], scaleX, scaleY)
+		dxIn, dyIn := pp.X-p.X, pp.Y-p.Y
+		dxOut, dyOut := np.X-p.X, np.Y-p.Y
+		lenIn := math.Hypot(dxIn, dyIn)
+		lenOut := math.Hypot(dxOut, dyOut)
+		if lenIn == 0 || lenOut == 0 {
+			fmt.Fprintf(&sb, "%s %g %g ", cmd, roundCoord(p.X), roundCoord(p.Y))
+			continue
 		}
 
-		pp = p
+		if isCusp {
+			rIn := math.Min(rTarget, lenIn/2)
+			rOut := math.Min(rTarget, lenOut/2)
+			cuspSign := 1.0
+			if cp.Hint == RoundedCuspUp {
+				cuspSign = -1.0
+			}
+			sx := roundCoord(p.X + dxIn*(rIn/lenIn))
+			sy := roundCoord(p.Y + dyIn*(rIn/lenIn))
+			cx := roundCoord(p.X)
+			cy := roundCoord(p.Y)
+			my := roundCoord(p.Y + cuspSign*rCusp)
+			ex := roundCoord(p.X + dxOut*(rOut/lenOut))
+			ey := roundCoord(p.Y + dyOut*(rOut/lenOut))
+			fmt.Fprintf(&sb, "%s %g %g Q %g %g %g %g Q %g %g %g %g ", cmd, sx, sy, cx, cy, cx, my, cx, cy, ex, ey)
+			continue
+		}
+
+		r := math.Min(rTarget, math.Min(lenIn/2, lenOut/2))
+		sx := roundCoord(p.X + dxIn*(r/lenIn))
+		sy := roundCoord(p.Y + dyIn*(r/lenIn))
+		cx := roundCoord(p.X)
+		cy := roundCoord(p.Y)
+		ex := roundCoord(p.X + dxOut*(r/lenOut))
+		ey := roundCoord(p.Y + dyOut*(r/lenOut))
+
+		fmt.Fprintf(&sb, "%s %g %g Q %g %g %g %g ", cmd, sx, sy, cx, cy, ex, ey)
 	}
 
-	return out
+	return sb.String()
 }

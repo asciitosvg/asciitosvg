@@ -40,16 +40,11 @@ func NewCanvas(data []byte, tabWidth int, noBlur bool) (Canvas, error) {
 	c := &canvas{
 		options: map[string]map[string]interface{}{
 			"__a2s__closed__options__": map[string]interface{}{
-				"fill":   "#fff",
-				"filter": "url(#dsFilter)",
+				"fill": "#fff",
 			},
 		},
 	}
-	if noBlur {
-		c.options["__a2s__closed__options__"] = map[string]interface{}{
-			"fill": "#fff",
-		}
-	}
+	_ = noBlur
 
 	lines := bytes.Split(data, []byte("\n"))
 	c.size.Y = len(lines)
