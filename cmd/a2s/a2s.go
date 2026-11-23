@@ -7,7 +7,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 
 	"github.com/asciitosvg/asciitosvg"
@@ -51,9 +51,9 @@ func mainImpl() error {
 		input = []byte(logo)
 	} else {
 		if *in == "-" {
-			input, err = ioutil.ReadAll(os.Stdin)
+			input, err = io.ReadAll(os.Stdin)
 		} else {
-			input, err = ioutil.ReadFile(*in)
+			input, err = os.ReadFile(*in)
 		}
 	}
 	if err != nil {
@@ -69,7 +69,7 @@ func mainImpl() error {
 		_, err := os.Stdout.Write(svg)
 		return err
 	}
-	return ioutil.WriteFile(*out, svg, 0666)
+	return os.WriteFile(*out, svg, 0666)
 }
 
 func main() {
