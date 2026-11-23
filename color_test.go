@@ -3,11 +3,7 @@
 
 package asciitosvg
 
-import (
-	"testing"
-
-	"github.com/maruel/ut"
-)
+import "testing"
 
 func TestParseHexColor(t *testing.T) {
 	t.Parallel()
@@ -27,6 +23,8 @@ func TestParseHexColor(t *testing.T) {
 		{"#FFG", nil, true},
 		{"#fffffg", nil, true},
 		{"#FFFFFG", nil, true},
+		{"", nil, true},
+		{"#", nil, true},
 	}
 
 	for i, v := range data {
@@ -38,10 +36,10 @@ func TestParseHexColor(t *testing.T) {
 				t.Fatalf("Test %d (%s): wanted error, got no error", i, v.color)
 			}
 		case false:
-			ut.AssertEqualIndex(t, i, err, nil)
+			assertEqualIndex(t, i, err, nil)
 
 			rgb := []int{r, g, b}
-			ut.AssertEqualIndex(t, i, v.rgb, rgb)
+			assertEqualIndex(t, i, v.rgb, rgb)
 		}
 	}
 }

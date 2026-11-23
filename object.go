@@ -34,6 +34,7 @@ type object struct {
 	// points always starts with the top most, then left most point, proceeding to the right.
 	points   []Point
 	isText   bool
+	isTagDef bool
 	text     []rune
 	corners  []Point
 	isClosed bool
@@ -84,12 +85,17 @@ func (o *object) String() string {
 // convex and concave polygons, we need to do a full point-in-polygon test. The algorithm implemented
 // comes from the more efficient, less-clever version at http://alienryderflex.com/polygon/.
 func (o *object) HasPoint(p Point) bool {
+	if !o.isClosed {
+		return false
+	}
 	hasPoint := false
 	ncorners := len(o.corners)
 	j := ncorners - 1
 	for i := 0; i < ncorners; i++ {
-		if (o.corners[i].Y < p.Y && o.corners[j].Y >= p.Y || o.corners[j].Y < p.Y && o.corners[i].Y >= p.Y) && (o.corners[i].X <= p.X || o.corners[j].X <= p.X) {
-			if o.corners[i].X+(p.Y-o.corners[i].Y)/(o.corners[j].Y-o.corners[i].Y)*(o.corners[j].X-o.corners[i].X) < p.X {
+		ci := o.corners[i]
+		cj := o.corners[j]
+		if (ci.Y < p.Y && cj.Y >= p.Y || cj.Y < p.Y && ci.Y >= p.Y) && (ci.X <= p.X || cj.X <= p.X) {
+			if float64(ci.X)+float64(p.Y-ci.Y)/float64(cj.Y-ci.Y)*float64(cj.X-ci.X) < float64(p.X) {
 				hasPoint = !hasPoint
 			}
 		}
@@ -99,17 +105,64 @@ func (o *object) HasPoint(p Point) bool {
 	return hasPoint
 }
 
+func arrowDir(c char) (int, int) {
+	switch c {
+	case '<':
+		return -1, 0
+	case '>':
+		return 1, 0
+	case '^':
+		return 0, -1
+	case 'v':
+		return 0, 1
+	default:
+		return 0, 0
+	}
+}
+
 // seal finalizes the object, setting its text, its corners, and its various rendering hints.
 func (o *object) seal(c *canvas) {
-	if c.at(o.points[0]).isArrow() {
-		o.points[0].Hint = StartMarker
+	corners, closed := pointsToCorners(o.points)
+	o.sealWith(c, corners, closed)
+}
+
+func (o *object) sealPath(c *canvas, closed bool) {
+	corners := pointsToCornersWithClosed(o.points, closed)
+	o.sealWith(c, corners, closed)
+}
+
+func (o *object) sealWith(c *canvas, corners []Point, closed bool) {
+	if !o.isText && len(o.points) >= 2 {
+		if ch := c.at(o.points[0]); ch.isArrow() {
+			ax, ay := arrowDir(ch)
+			dx := o.points[1].X - o.points[0].X
+			dy := o.points[1].Y - o.points[0].Y
+			if ax*dx+ay*dy > 0 {
+				o.points[0].Hint = StartMarkerForward
+			} else {
+				o.points[0].Hint = StartMarker
+			}
+		}
+
+		last := len(o.points) - 1
+		if ch := c.at(o.points[last]); ch.isArrow() {
+			ax, ay := arrowDir(ch)
+			dx := o.points[last].X - o.points[last-1].X
+			dy := o.points[last].Y - o.points[last-1].Y
+			if ax*dx+ay*dy < 0 {
+				o.points[last].Hint = EndMarkerReverse
+			} else {
+				o.points[last].Hint = EndMarker
+			}
+		}
+		// Recompute corners if start/end hints changed so corners preserve marker hints.
+		if o.points[0].Hint != None || o.points[last].Hint != None {
+			corners = pointsToCornersWithClosed(o.points, closed)
+		}
 	}
 
-	if c.at(o.points[len(o.points)-1]).isArrow() {
-		o.points[len(o.points)-1].Hint = EndMarker
-	}
-
-	o.corners, o.isClosed = pointsToCorners(o.points)
+	o.corners = corners
+	o.isClosed = closed
 	o.text = make([]rune, len(o.points))
 
 	for i, p := range o.points {
@@ -124,9 +177,12 @@ func (o *object) seal(c *canvas) {
 				o.isDashed = true
 			}
 
-			for _, corner := range o.corners {
-				if corner.X == p.X && corner.Y == p.Y && c.at(p).isRoundedCorner() {
-					o.points[i].Hint = RoundedCorner
+			if c.at(p).isRoundedCorner() && (o.isClosed || (i > 0 && i < len(o.points)-1)) {
+				for _, corner := range o.corners {
+					if corner.X == p.X && corner.Y == p.Y {
+						o.points[i].Hint = RoundedCorner
+						break
+					}
 				}
 			}
 		}
@@ -161,13 +217,53 @@ func (o objects) Less(i, j int) bool {
 
 const (
 	dirNone = iota // No directionality
-	dirH           // Horizontal
-	dirV           // Vertical
+	dirE           // East (right)
+	dirW           // West (left)
+	dirS           // South (down)
+	dirN           // North (up)
 	dirSE          // South-East
 	dirSW          // South-West
 	dirNW          // North-West
 	dirNE          // North-East
 )
+
+func stepDir(from, to Point) int {
+	dx := to.X - from.X
+	dy := to.Y - from.Y
+	switch {
+	case dx == 1 && dy == 0:
+		return dirE
+	case dx == -1 && dy == 0:
+		return dirW
+	case dx == 0 && dy == 1:
+		return dirS
+	case dx == 0 && dy == -1:
+		return dirN
+	case dx == 1 && dy == 1:
+		return dirSE
+	case dx == -1 && dy == 1:
+		return dirSW
+	case dx == -1 && dy == -1:
+		return dirNW
+	case dx == 1 && dy == -1:
+		return dirNE
+	default:
+		return dirNone
+	}
+}
+
+func signedArea2(points []Point) int {
+	n := len(points)
+	if n < 3 {
+		return 0
+	}
+	area2 := 0
+	for i := 0; i < n; i++ {
+		j := (i + 1) % n
+		area2 += points[i].X*points[j].Y - points[j].X*points[i].Y
+	}
+	return area2
+}
 
 // pointsToCorners returns all the corners (points at which there is a change of directionality) for
 // a path. It additionally returns a truth value indicating whether the points supplied indicate a
@@ -178,73 +274,49 @@ func pointsToCorners(points []Point) ([]Point, bool) {
 	if l < 3 {
 		return points, false
 	}
+	last := points[l-1]
+	closingDir := stepDir(last, points[0])
+	closed := false
+	if closingDir != dirNone && (l >= 4 || closingDir == dirNE) {
+		closed = true
+	}
+	return pointsToCornersWithClosed(points, closed), closed
+}
+
+func pointsToCornersWithClosed(points []Point, closed bool) []Point {
+	l := len(points)
+	if l < 3 {
+		return points
+	}
 	out := []Point{points[0]}
 
-	dir := dirNone
-	if isHorizontal(points[0], points[1]) {
-		dir = dirH
-	} else if isVertical(points[0], points[1]) {
-		dir = dirV
-	} else if isDiagonalSE(points[0], points[1]) {
-		dir = dirSE
-	} else if isDiagonalSW(points[0], points[1]) {
-		dir = dirSW
-	} else if isDiagonalNW(points[0], points[1]) {
-		dir = dirNW
-	} else if isDiagonalNE(points[0], points[1]) {
-		dir = dirNE
-	} else {
+	dir := stepDir(points[0], points[1])
+	if dir == dirNone {
 		panic(fmt.Errorf("discontiguous points: %+v", points))
 	}
 
 	// Starting from the third point, check to see if the directionality between points P and
 	// P-1 has changed.
 	for i := 2; i < l; i++ {
-		cornerFunc := func(idx, newDir int) {
-			if dir != newDir {
-				out = append(out, points[idx-1])
-				dir = newDir
-			}
-		}
-		if isHorizontal(points[i-1], points[i]) {
-			cornerFunc(i, dirH)
-		} else if isVertical(points[i-1], points[i]) {
-			cornerFunc(i, dirV)
-		} else if isDiagonalSE(points[i-1], points[i]) {
-			cornerFunc(i, dirSE)
-		} else if isDiagonalSW(points[i-1], points[i]) {
-			cornerFunc(i, dirSW)
-		} else if isDiagonalNW(points[i-1], points[i]) {
-			cornerFunc(i, dirNW)
-		} else if isDiagonalNE(points[i-1], points[i]) {
-			cornerFunc(i, dirNE)
-		} else {
+		newDir := stepDir(points[i-1], points[i])
+		if newDir == dirNone {
 			panic(fmt.Errorf("discontiguous points: %+v", points))
 		}
-	}
-
-	// Check if the points indicate a closed path. If not, append the last point.
-	last := points[l-1]
-	closed := true
-	closedFunc := func(newDir int) {
 		if dir != newDir {
-			closed = false
-			out = append(out, last)
+			out = append(out, points[i-1])
+			dir = newDir
 		}
 	}
-	if isHorizontal(points[0], last) {
-		closedFunc(dirH)
-	} else if isVertical(points[0], last) {
-		closedFunc(dirV)
-	} else if isDiagonalNE(last, points[0]) {
-		closedFunc(dirNE)
-	} else {
-		// Note: we'll always find any closed polygon from its top-left-most point. If it
-		// is closed, it must be closed in the north-easterly direction, thus we don't test
-		// for any other types of polygone closure.
-		closed = false
+
+	last := points[l-1]
+	if !closed {
 		out = append(out, last)
+		return out
 	}
 
-	return out, closed
+	closingDir := stepDir(last, points[0])
+	if closingDir == dirNone || dir != closingDir {
+		out = append(out, last)
+	}
+	return out
 }

@@ -76,9 +76,9 @@ ultimately ran into the issues described above. Hence this project.
 
 ## Compilation and Usage
 
-To get the CLI tool, make sure `$GOPATH/bin` is in your `$PATH`. Run:
+To install the CLI tool, make sure `$GOBIN` (or `$(go env GOPATH)/bin`) is in your `$PATH` and run:
 
-    $ go get github.com/asciitosvg/asciitosvg/cmd/a2s
+    $ go install github.com/asciitosvg/asciitosvg/cmd/a2s@latest
     $ a2s -h
      .-------------------------.
      |                         |
@@ -98,7 +98,7 @@ To get the CLI tool, make sure `$GOPATH/bin` is in your `$PATH`. Run:
       -L	Generate SVG of the a2s logo.
       -b	Disable drop-shadow blur.
       -f string
-            Font family to use. (default "Consolas,Monaco,Anonymous Pro,Anonymous,Bitstream Sans Mono,monospace")
+            Font family to use. (default "Consolas,Monaco,Anonymous Pro,Anonymous,Bitstream Vera Sans Mono,Liberation Mono,DejaVu Sans Mono,monospace")
       -i string
             Path to input text file. If set to "-" (hyphen), stdin is used. (default "-")
       -o string
@@ -111,11 +111,17 @@ To get the CLI tool, make sure `$GOPATH/bin` is in your `$PATH`. Run:
             Y grid scale in pixels. (default 16)
 
 
-To play with the library:
+Or, from a local checkout of this repository:
 
-    $ go get github.com/asciitosvg/asciitosvg
+    $ go install ./cmd/a2s
 
-Documentation on the API is available through your local `godoc` server.
+To add the library to a Go module project:
+
+    $ go get github.com/asciitosvg/asciitosvg@latest
+
+Documentation on the API is available via `go doc`:
+
+    $ go doc github.com/asciitosvg/asciitosvg
 
 ## Drawing diagrams
 
@@ -133,7 +139,7 @@ following characters:
  * `-` or `=`: Horizontal lines, solid or dashed (respectively).
  * `|` or `:`: Vertical lines, solid or dashed (respectively).
  * `\` or `/`: Diagonal lines.
- * `+`: Edge of a line segment, or an angled corner.
+ * `+` or `#`: Edge of a line segment, or an angled corner.
 
 Ticks and dots can be added into the middle of a line segment using `x` and
 `o`, respectively. Note that these characters cannot be inserted into diagonal
@@ -142,8 +148,8 @@ lines, and they cannot begin a line.
 To draw a polygon or turn a line, corners are necessary. The following
 characters are valid corner characters:
 
- * `'` and `.`: Quadratic Bézier corners
- * `+`: Angled corners.
+ * `'` and `.`: Quadratic Bézier corners (when placed unambiguously mid-way along a horizontal run, `.` dips downward and `'` rises upward as a smooth rounded cusp, as in the `'a'` of the logo)
+ * `+` and `#`: Angled corners.
 
 The `+` token is a control point for lines. It denotes an area where a line
 intersects another line or traverses a box boundary.
@@ -200,8 +206,7 @@ contrast if the black text would be too dark on the background. The
 reference commands can take any valid SVG properties / settings for a
 [path element][4]. The commands are specified in JSON form, one per line.
 Reference commands do not accept nested JSON objects -- don't try to
-place additional curly braces inside! (Indeed, the current Go implementation
-currently requires all JSON values other than `a2s:delref` to be strings.)
+place additional curly braces inside!
 
 By default, the text of a reference is rendered inside the polygon, and the
 reference is left in-tact in the output. You can remove the reference text
@@ -220,8 +225,8 @@ left of the diagram.
 
 Such references should only be made for stable diagrams, and only if you
 *really* need to style text or a line in some particular way. These references
-are marked by beginning the line with `[X,Y]` where `X` is the numeric row and 
-`Y` is the numeric column of the object's top-left-most point.
+are marked by beginning the line with `[X,Y]` where `X` is the numeric column and
+`Y` is the numeric row of the object's top-left-most point.
 
 ## Unsupported features
 
@@ -230,7 +235,6 @@ Features that are currently unimplemented include:
 
  * Custom objects, including the `a2s:type` format specifier, are not yet
  implemented.
- * No support is planned for angled corners using `#`.
  * No support is planned for undirected lines using `*`.
 
 ## External Resources
