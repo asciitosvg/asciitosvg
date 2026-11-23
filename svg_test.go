@@ -31,7 +31,7 @@ func TestCanvasToSVG(t *testing.T) {
 				"|[a]  |",
 				"'-----'",
 			},
-			1763,
+			1727,
 		},
 
 		// 2 Box with ref, change background color of container with #RRGGBB
@@ -43,7 +43,7 @@ func TestCanvasToSVG(t *testing.T) {
 				"",
 				"[a]: {\"fill\":\"#000000\"}",
 			},
-			1858,
+			1837,
 		},
 
 		// 3 Box with ref && fill, change label
@@ -55,7 +55,7 @@ func TestCanvasToSVG(t *testing.T) {
 				"",
 				"[a]: {\"fill\":\"#000000\",\"a2s:label\":\"abcdefg\"}",
 			},
-			1826,
+			1809,
 		},
 
 		// 4 Box with ref && fill && label, remove ref
@@ -67,7 +67,7 @@ func TestCanvasToSVG(t *testing.T) {
 				"",
 				"[a]: {\"fill\":\"#000000\",\"a2s:label\":\"abcd\",\"a2s:delref\":1}",
 			},
-			1764,
+			1744,
 		},
 
 		// 5 Ticks and dots in lines.

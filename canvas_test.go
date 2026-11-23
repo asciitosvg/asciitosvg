@@ -527,6 +527,96 @@ func TestNewCanvasBroken(t *testing.T) {
 	}
 }
 
+func TestExpandTabsAndCRLF(t *testing.T) {
+	t.Parallel()
+	// Multi-byte UTF-8 rune before a tab must not fail or miscount tabstop.
+	c, err := NewCanvas([]byte("é\t+-+\r\n \t| |\r\n \t+-+"), 4, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.Size().X != 7 || c.Size().Y != 3 {
+		t.Fatalf("expected size (7,3), got %v", c.Size())
+	}
+	var foundBox bool
+	for _, o := range c.Objects() {
+		if !o.IsText() && o.IsClosed() {
+			foundBox = true
+			if o.Corners()[0] != (Point{X: 4, Y: 0}) {
+				t.Fatalf("expected box at X=4 after tab expansion, got %v", o.Corners())
+			}
+		}
+	}
+	if !foundBox {
+		t.Fatal("expected closed box after tab expansion")
+	}
+
+	// tabWidth == 0 should not panic.
+	if _, err := NewCanvas([]byte("\t+-+\n\t| |\n\t+-+"), 0, true); err != nil {
+		t.Fatalf("unexpected error with tabWidth=0: %v", err)
+	}
+}
+
+func TestEnclosingObjectsAndDiagonalHasPoint(t *testing.T) {
+	t.Parallel()
+	// Inner box shares X=0 left wall with outer box via indent/nested layout,
+	// and diamond tests float64 ray casting.
+	input := strings.Join([]string{
+		"+---------+",
+		"| +-----+ |",
+		"| |  x  | |",
+		"| +-----+ |",
+		"+---------+",
+		"",
+		"  +  ",
+		" / \\ ",
+		"+   +",
+		" \\ / ",
+		"  +  ",
+	}, "\n")
+	c, err := NewCanvas([]byte(input), 8, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	enc := c.EnclosingObjects(Point{X: 5, Y: 2})
+	if len(enc) != 2 {
+		t.Fatalf("expected 2 enclosing boxes, got %d", len(enc))
+	}
+	// Must be ordered most specific (inner) to least specific (outer).
+	if enc[0].Corners()[0] != (Point{X: 2, Y: 1}) || enc[1].Corners()[0] != (Point{X: 0, Y: 0}) {
+		t.Fatalf("unexpected enclosing order: inner=%v outer=%v", enc[0].Corners(), enc[1].Corners())
+	}
+
+	// Test diagonal polygon HasPoint using non-axis-aligned edges.
+	diagObj := &object{
+		corners:  []Point{{X: 2, Y: 6}, {X: 4, Y: 8}, {X: 2, Y: 10}, {X: 0, Y: 8}},
+		isClosed: true,
+	}
+	if !diagObj.HasPoint(Point{X: 2, Y: 8}) {
+		t.Fatal("expected diamond to contain (2,8)")
+	}
+	if diagObj.HasPoint(Point{X: 0, Y: 7}) {
+		t.Fatal("expected (0,7) outside diamond")
+	}
+}
+
+func TestTagParsingSafety(t *testing.T) {
+	t.Parallel()
+	// Prose like [Note]: see below must not panic.
+	c, err := NewCanvas([]byte("[Note]: see below"), 8, true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(c.Objects()) != 1 || string(c.Objects()[0].Text()) != "[Note]: see below" {
+		t.Fatalf("unexpected objects: %+v", c.Objects())
+	}
+
+	// Malformed JSON object tag definition should return an error cleanly.
+	if _, err := NewCanvas([]byte("[a]: {invalid"), 8, true); err == nil {
+		t.Fatal("expected error for malformed JSON tag definition")
+	}
+}
+
 func TestPointsToCorners(t *testing.T) {
 	t.Parallel()
 	data := []struct {

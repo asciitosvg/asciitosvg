@@ -20,8 +20,7 @@ func (c char) isTagDefinitionSeparator() bool {
 }
 
 func (c char) isTextStart() bool {
-	r := rune(c)
-	return c.isObjectStartTag() || unicode.IsLetter(r) || unicode.IsNumber(r) || unicode.IsSymbol(r)
+	return c.isTextCont() && !c.isSpace()
 }
 
 func (c char) isTextCont() bool {

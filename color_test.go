@@ -3,9 +3,7 @@
 
 package asciitosvg
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestParseHexColor(t *testing.T) {
 	t.Parallel()
@@ -25,6 +23,8 @@ func TestParseHexColor(t *testing.T) {
 		{"#FFG", nil, true},
 		{"#fffffg", nil, true},
 		{"#FFFFFG", nil, true},
+		{"", nil, true},
+		{"#", nil, true},
 	}
 
 	for i, v := range data {

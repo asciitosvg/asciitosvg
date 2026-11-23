@@ -226,8 +226,8 @@ left of the diagram.
 
 Such references should only be made for stable diagrams, and only if you
 *really* need to style text or a line in some particular way. These references
-are marked by beginning the line with `[X,Y]` where `X` is the numeric row and 
-`Y` is the numeric column of the object's top-left-most point.
+are marked by beginning the line with `[X,Y]` where `X` is the numeric column and
+`Y` is the numeric row of the object's top-left-most point.
 
 ## Unsupported features
 

@@ -34,6 +34,7 @@ type object struct {
 	// points always starts with the top most, then left most point, proceeding to the right.
 	points   []Point
 	isText   bool
+	isTagDef bool
 	text     []rune
 	corners  []Point
 	isClosed bool
@@ -84,12 +85,17 @@ func (o *object) String() string {
 // convex and concave polygons, we need to do a full point-in-polygon test. The algorithm implemented
 // comes from the more efficient, less-clever version at http://alienryderflex.com/polygon/.
 func (o *object) HasPoint(p Point) bool {
+	if !o.isClosed {
+		return false
+	}
 	hasPoint := false
 	ncorners := len(o.corners)
 	j := ncorners - 1
 	for i := 0; i < ncorners; i++ {
-		if (o.corners[i].Y < p.Y && o.corners[j].Y >= p.Y || o.corners[j].Y < p.Y && o.corners[i].Y >= p.Y) && (o.corners[i].X <= p.X || o.corners[j].X <= p.X) {
-			if o.corners[i].X+(p.Y-o.corners[i].Y)/(o.corners[j].Y-o.corners[i].Y)*(o.corners[j].X-o.corners[i].X) < p.X {
+		ci := o.corners[i]
+		cj := o.corners[j]
+		if (ci.Y < p.Y && cj.Y >= p.Y || cj.Y < p.Y && ci.Y >= p.Y) && (ci.X <= p.X || cj.X <= p.X) {
+			if float64(ci.X)+float64(p.Y-ci.Y)/float64(cj.Y-ci.Y)*float64(cj.X-ci.X) < float64(p.X) {
 				hasPoint = !hasPoint
 			}
 		}
@@ -97,6 +103,19 @@ func (o *object) HasPoint(p Point) bool {
 	}
 
 	return hasPoint
+}
+
+func signedArea2(points []Point) int {
+	n := len(points)
+	if n < 3 {
+		return 0
+	}
+	area2 := 0
+	for i := 0; i < n; i++ {
+		j := (i + 1) % n
+		area2 += points[i].X*points[j].Y - points[j].X*points[i].Y
+	}
+	return area2
 }
 
 // seal finalizes the object, setting its text, its corners, and its various rendering hints.
