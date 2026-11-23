@@ -6,8 +6,6 @@ package asciitosvg
 import (
 	"strings"
 	"testing"
-
-	"github.com/maruel/ut"
 )
 
 func TestNewCanvas(t *testing.T) {
@@ -439,16 +437,16 @@ func TestNewCanvas(t *testing.T) {
 		}
 		objs := c.Objects()
 		if line.strings != nil {
-			ut.AssertEqualIndex(t, i, line.strings, getStrings(objs))
+			assertEqualIndex(t, i, line.strings, getStrings(objs))
 		}
 		if line.texts != nil {
-			ut.AssertEqualIndex(t, i, line.texts, getTexts(objs))
+			assertEqualIndex(t, i, line.texts, getTexts(objs))
 		}
 		if line.points != nil {
 			if line.allPoints == false {
-				ut.AssertEqualIndex(t, i, line.points, getCorners(objs))
+				assertEqualIndex(t, i, line.points, getCorners(objs))
 			} else {
-				ut.AssertEqualIndex(t, i, line.points, getPoints(objs))
+				assertEqualIndex(t, i, line.points, getPoints(objs))
 			}
 		}
 	}
@@ -518,13 +516,13 @@ func TestNewCanvasBroken(t *testing.T) {
 		}
 		objs := c.Objects()
 		if line.strings != nil {
-			ut.AssertEqualIndex(t, i, line.strings, getStrings(objs))
+			assertEqualIndex(t, i, line.strings, getStrings(objs))
 		}
 		if line.texts != nil {
-			ut.AssertEqualIndex(t, i, line.texts, getTexts(objs))
+			assertEqualIndex(t, i, line.texts, getTexts(objs))
 		}
 		if line.corners != nil {
-			ut.AssertEqualIndex(t, i, line.corners, getCorners(objs))
+			assertEqualIndex(t, i, line.corners, getCorners(objs))
 		}
 	}
 }
@@ -568,8 +566,8 @@ func TestPointsToCorners(t *testing.T) {
 	}
 	for i, line := range data {
 		p, c := pointsToCorners(line.in)
-		ut.AssertEqualIndex(t, i, line.expected, p)
-		ut.AssertEqualIndex(t, i, line.closed, c)
+		assertEqualIndex(t, i, line.expected, p)
+		assertEqualIndex(t, i, line.closed, c)
 	}
 }
 

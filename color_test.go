@@ -5,8 +5,6 @@ package asciitosvg
 
 import (
 	"testing"
-
-	"github.com/maruel/ut"
 )
 
 func TestParseHexColor(t *testing.T) {
@@ -38,10 +36,10 @@ func TestParseHexColor(t *testing.T) {
 				t.Fatalf("Test %d (%s): wanted error, got no error", i, v.color)
 			}
 		case false:
-			ut.AssertEqualIndex(t, i, err, nil)
+			assertEqualIndex(t, i, err, nil)
 
 			rgb := []int{r, g, b}
-			ut.AssertEqualIndex(t, i, v.rgb, rgb)
+			assertEqualIndex(t, i, v.rgb, rgb)
 		}
 	}
 }

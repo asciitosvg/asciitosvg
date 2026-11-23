@@ -11,21 +11,21 @@
 //
 // Example usage:
 //
-//     import (
-//         "fmt"
-//         "io"
+//	import (
+//	    "fmt"
+//	    "io"
 //
-//         a2s "github.com/asciitosvg/asciitosvg"
-//     )
+//	    a2s "github.com/asciitosvg/asciitosvg"
+//	)
 //
-//     ...
+//	...
 //
-//         c, err := a2s.NewCanvas(diagram, 8)
-//         if err != nil {
-//             fmt.Printf("Couldn't create a Canvas: %s\n", err)
-//         }
-//         svg := a2s.CanvasToSVG(c, false, "", 16, 9)
-//         written, err := fd.Write(svg)
+//	    c, err := a2s.NewCanvas(diagram, 8, false)
+//	    if err != nil {
+//	        fmt.Printf("Couldn't create a Canvas: %s\n", err)
+//	    }
+//	    svg := a2s.CanvasToSVG(c, false, "", 9, 16)
+//	    written, err := fd.Write(svg)
 //
-//     ...
+//	...
 package asciitosvg

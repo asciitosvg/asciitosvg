@@ -76,9 +76,9 @@ ultimately ran into the issues described above. Hence this project.
 
 ## Compilation and Usage
 
-To get the CLI tool, make sure `$GOPATH/bin` is in your `$PATH`. Run:
+To install the CLI tool, make sure `$GOBIN` (or `$(go env GOPATH)/bin`) is in your `$PATH` and run:
 
-    $ go get github.com/asciitosvg/asciitosvg/cmd/a2s
+    $ go install github.com/asciitosvg/asciitosvg/cmd/a2s@latest
     $ a2s -h
      .-------------------------.
      |                         |
@@ -111,11 +111,17 @@ To get the CLI tool, make sure `$GOPATH/bin` is in your `$PATH`. Run:
             Y grid scale in pixels. (default 16)
 
 
-To play with the library:
+Or, from a local checkout of this repository:
 
-    $ go get github.com/asciitosvg/asciitosvg
+    $ go install ./cmd/a2s
 
-Documentation on the API is available through your local `godoc` server.
+To add the library to a Go module project:
+
+    $ go get github.com/asciitosvg/asciitosvg@latest
+
+Documentation on the API is available via `go doc`:
+
+    $ go doc github.com/asciitosvg/asciitosvg
 
 ## Drawing diagrams
 
