@@ -98,7 +98,7 @@ To install the CLI tool, make sure `$GOBIN` (or `$(go env GOPATH)/bin`) is in yo
       -L	Generate SVG of the a2s logo.
       -b	Disable drop-shadow blur.
       -f string
-            Font family to use. (default "Consolas,Monaco,Anonymous Pro,Anonymous,Bitstream Sans Mono,monospace")
+            Font family to use. (default "Consolas,Monaco,Anonymous Pro,Anonymous,Bitstream Vera Sans Mono,Liberation Mono,DejaVu Sans Mono,monospace")
       -i string
             Path to input text file. If set to "-" (hyphen), stdin is used. (default "-")
       -o string
@@ -206,8 +206,7 @@ contrast if the black text would be too dark on the background. The
 reference commands can take any valid SVG properties / settings for a
 [path element][4]. The commands are specified in JSON form, one per line.
 Reference commands do not accept nested JSON objects -- don't try to
-place additional curly braces inside! (Indeed, the current Go implementation
-currently requires all JSON values other than `a2s:delref` to be strings.)
+place additional curly braces inside!
 
 By default, the text of a reference is rendered inside the polygon, and the
 reference is left in-tact in the output. You can remove the reference text

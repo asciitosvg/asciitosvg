@@ -38,7 +38,7 @@ func mainImpl() error {
 	in := flag.String("i", "-", "Path to input text file. If set to \"-\" (hyphen), stdin is used.")
 	out := flag.String("o", "-", "Path to output SVG file. If set to \"-\" (hyphen), stdout is used.")
 	noBlur := flag.Bool("b", false, "Disable drop-shadow blur.")
-	font := flag.String("f", "Consolas,Monaco,Anonymous Pro,Anonymous,Bitstream Sans Mono,monospace", "Font family to use.")
+	font := flag.String("f", "Consolas,Monaco,Anonymous Pro,Anonymous,Bitstream Vera Sans Mono,Liberation Mono,DejaVu Sans Mono,monospace", "Font family to use.")
 	scaleX := flag.Int("x", 9, "X grid scale in pixels.")
 	scaleY := flag.Int("y", 16, "Y grid scale in pixels.")
 	tabWidth := flag.Int("t", 8, "Tab width.")
