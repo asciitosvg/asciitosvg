@@ -22,3 +22,7 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+# On-demand rendered test gallery output
+testdata/rendered/
+TEST_CASES.md
